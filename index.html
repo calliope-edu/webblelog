@@ -40,18 +40,15 @@
     // Make the "go" button open the request devices box
     uBM.addEventListener("connected", (e)=> {
         console.log("New Device connected")
-        console.dir(e)
-        consolePrintln(`Connected to: ${e}`)
+        console.dir(e.detail)
+        consolePrintln(`Connected to: ${e.detail}`)
     })
     uBM.addEventListener("disconnected", (e)=> {
         console.log("Device disconnected")
-        console.dir(e)
-        consolePrintln(`Disconnected from: ${e}`)
+        console.dir(e.detail)
+        consolePrintln(`Disconnected from: ${e.detail}`)
     })
     document.getElementById("connect").addEventListener("click", () => uBM.connect())
-    // document.getElementById("disconnect").addEventListener("click", () =>  { connectedDevices.forEach(d=>uBitDisconnect(d)); connectedDevices = [];})
-    // document.getElementById("clear").addEventListener("click", () => { document.getElementById("console").innerHTML = "" })
-    // document.getElementById("send").addEventListener("click", () => { connectedDevices.forEach( d=>uBitSend(d, "Test")) })
 
 </script>
 
