@@ -5,11 +5,11 @@
  */
 
 class uBit extends EventTarget {
-   constructor(device, service, chars) {
+   constructor() {
     super()
-    this.device = device
-    this.service = service
-    this.chars = chars
+    this.device = null
+    this.service = null
+    this.chars = null
    }
 }
 
@@ -56,15 +56,23 @@ class uBitManager extends EventTarget  {
             let chars = await service.getCharacteristics()  
             console.dir(chars)
             console.log("Characteristics...!")
+        
+            let uB = this.devices.get(device.id)
+            if(!uB){
+                uB = new uBit()
+                this.devices.set(device.id, uB)
+            }
+            uB.service = service
+            uB.chars = chars
+            uB.device = device
 
-            this.dispatchEvent(new CustomEvent("connected", {detail: device} ))
+            this.dispatchEvent(new CustomEvent("connected", {detail: uB} ))
             device.addEventListener('gattserverdisconnected', () => {
-                this.dispatchEvent(new CustomEvent("disconnected", {detail: device} ))
+                this.dispatchEvent(new CustomEvent("disconnected", {detail: uB} ))
             }, {once:true});
 
             // Success!
             // TODO: Check for re-connect or initial connect
-            this.devices.set(device.id, new uBit(device, service, chars));
         } else {
             console.warn("No service found!")
         } 
