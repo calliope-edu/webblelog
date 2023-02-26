@@ -5,6 +5,8 @@
  */
 
 
+
+
 const serviceCharacteristics = new Map( 
     [
      ["accb4f64-8a4b-11ed-a1eb-0242ac120002", "security"],  // Security	Read, Notify
@@ -20,8 +22,17 @@ class uBit extends EventTarget {
    constructor(manager) {
     super()
     this.manager = manager
+    this.completeData = ""
     this.disconnected()
+
+    // Bind methods
+    this.onData = this.onData.bind(this)
+    this.onConnect = this.onConnect.bind(this)
+    this.fullRead = this.fullRead.bind(this)
    }
+
+   static textDecoder = new TextDecoder('utf-8');
+
    async onConnect(service, chars, device) {
     this.device = device 
     this.chars = chars 
@@ -35,6 +46,7 @@ class uBit extends EventTarget {
             console.log(`Char not found: ${element.uuid}`)
         }
     });
+
 
     // Connect / disconnect handlers
     console.log(`onConnnect: ${this.manager}`)
@@ -62,6 +74,8 @@ class uBit extends EventTarget {
     let intTime = time.getBigUint64(0,true)
     console.log(`Time: ${intTime}`)
     console.dir(time)
+
+    this.fullRead()
    }
    
    onNewLength(event) {
@@ -75,10 +89,46 @@ class uBit extends EventTarget {
     console.log(`Security: ${value}`)
    }
 
-   onData(event) {
-    console.log(`New  data!!! ${event}`)
-    console.dir(event)
+ showHex(dv) {
+    let str = ""
+    for(let i=0; i<dv.byteLength; i++) {
+        str += ` ${dv.getUint8(i).toString(16)}`
+    }
+     return str
    }
+
+
+
+   onData(event) {
+    // First four bytes are index/offset this is in reply to...
+
+    console.log(`New  data!!! ${event}`)
+    let dv = event.target.value
+
+    if(dv.byteLength>=4) {
+        let index = dv.getUint32(0,true)
+        
+        let text =''
+        console.dir(dv)
+        for(let i=4;i<dv.byteLength;i++) {
+            let val = dv.getUint8(i)
+            if(val!=0) {
+                text += String.fromCharCode(val)
+            }
+        }
+
+        console.log(`Text at ${index}: ${text}`)
+        console.log(`Hex: ${this.showHex(dv)}`)
+
+        this.completeData += text
+    } else if(event.target.value.byteLength==0) {
+        console.log("Done!")
+        console.log(`Complete data\n${this.completeData}`)
+    }
+
+   }
+
+
 
    onUsage(event) {
     let value = event.target.value.getUint16(0, true)/10.0
@@ -89,6 +139,21 @@ class uBit extends EventTarget {
    onDisconnect() {
     this.manager.dispatchEvent(new CustomEvent("disconnected", {detail: this} ));
     this.disconnected()
+   }
+
+
+   async fullRead() {
+    // Get rid of existing data
+    this.completeData = ""
+    // Read all data
+    console.log("Full read")
+    let length = await this.dataLen.readValue()
+    let intLength = length.getUint32(0,true)
+    console.log(`Reading ${intLength}` )
+    let dv = new DataView(new ArrayBuffer(8))
+    dv.setUint32(0, 0, true)
+    dv.setUint32(4, intLength, true)
+    await this.dataReq.writeValue(dv)
    }
 
    disconnected() {
