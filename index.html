@@ -41,14 +41,20 @@
     uBM.addEventListener("connected", (e)=> {
         console.log("New Device connected")
         console.dir(e.detail)
-        consolePrintln(`Connected to: ${e.detail}`)
+        consolePrintln(`Connected to: ${e.detail.name}`)
     })
     uBM.addEventListener("disconnected", (e)=> {
         console.log("Device disconnected")
         console.dir(e.detail)
-        consolePrintln(`Disconnected from: ${e.detail}`)
+        consolePrintln(`Disconnected from: ${e.detail.name}`)
     })
     document.getElementById("connect").addEventListener("click", () => uBM.connect())
+
+    document.getElementById("disconnect").addEventListener("click", () => {
+        for(let [id, device] of uBM.getDevices()) {
+            device.disconnect()
+        }
+    })
 
 </script>
 

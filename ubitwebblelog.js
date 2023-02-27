@@ -13,14 +13,15 @@ function showHex(dv) {
     return str
 }
 
-
 // https://stackoverflow.com/questions/951021/what-is-the-javascript-version-of-sleep
 // Testing / timing
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+const onDataTIMEOUT = 5000
 
+const SERVICE_UUID     = "accb4ce4-8a4b-11ed-a1eb-0242ac120002"  // BLE Service
 const serviceCharacteristics = new Map( 
     [
      ["accb4f64-8a4b-11ed-a1eb-0242ac120002", "security"],  // Security	Read, Notify
@@ -32,6 +33,7 @@ const serviceCharacteristics = new Map(
      ["accb5be4-8a4b-11ed-a1eb-0242ac120002", "usage"],     // Usage	Read, Notify
      ["accb5dd8-8a4b-11ed-a1eb-0242ac120002", "time"]       // Time	Read
     ]);
+
 class uBit extends EventTarget {
     constructor(manager) {
         super()
@@ -44,10 +46,12 @@ class uBit extends EventTarget {
         // Object ownership 
         this.manager = manager
 
+        this.rawData = []
+        this.rows = [] 
+        this.timestamps = []
+        this.dataLength = null
 
-
-        this.completeData = ""
-
+        this.onDataTimeoutHandler = null  // Also tracks if a read is in progress
 
         // Bind methods
         this.onConnect = this.onConnect.bind(this)
@@ -59,17 +63,62 @@ class uBit extends EventTarget {
         this.onUsage = this.onUsage.bind(this)
         this.onDisconnect = this.onDisconnect.bind(this)
 
+        this.retrieveChunk = this.retrieveChunk.bind(this)
         this.fullRead = this.fullRead.bind(this)
+        this.disconnect = this.disconnect.bind(this)
+
+        this.readLength = this.readLength.bind(this)
+        
+        this.onDataTimeout = this.onDataTimeout.bind(this)
+
+        this.processData = this.processData.bind(this)
+
 
         // Connection state management setup 
         this.disconnected()
     }
 
+    async readLength() {
+        let length = await this.dataLen.readValue()
+        let intLength = length.getUint32(0,true)
+        return intLength        
+    }
+
+    async retrieveChunk(startIndex, length) {
+        // Only works on byte index that is a multiple of 16. 
+
+        if(startIndex%16!=0) {
+            console.log(`Bad index: ${startIndex}`)
+            return
+        }
+        // Limit length to end of buffer 
+        length = Math.max(this.dataLength-startIndex, length)
+
+        let dv = new DataView(new ArrayBuffer(8))
+        dv.setUint32(0, startIndex, true)
+        dv.setUint32(4, length, true)
+        await this.dataReq.writeValue(dv)
+        if(this.onDataTimeoutHandler!=null) {
+            clearTimeout(this.onDataTimeoutHandler)
+        }
+        this.onDataTimeoutHandler = setTimeout(this.onDataTimeout, onDataTIMEOUT)
+    }
+
+    async fullRead() {
+        this.retrieveChunk(0, this.dataLength)
+    }
+
 
     async onConnect(service, chars, device) {
+        // Add identity values if not already set (neither expected to change)
+        this.id = this.id || device.id   
+        this.name = this.name || device.name 
+
+        // Bluetooth & connection configuration
         this.device = device 
         this.chars = chars 
         this.service = service
+
         this.chars.forEach(element => {
             let charName = serviceCharacteristics.get(element.uuid)
             if(charName!=null) {
@@ -79,6 +128,14 @@ class uBit extends EventTarget {
             }
         });
 
+        // Initial reads (need to be before notifies
+        let time = await this.time.readValue() 
+        let intTime = time.getBigUint64(0,true)
+
+        this.mbConnectTime = intTime
+        this.wallClockConnectTime = Date.now()
+
+        this.dataLength = await this.readLength()
 
         // Connect / disconnect handlers
         this.manager.dispatchEvent(new CustomEvent("connected", {detail: this}))
@@ -99,10 +156,6 @@ class uBit extends EventTarget {
         this.usage.addEventListener('characteristicvaluechanged', this.onUsage)
         await this.usage.startNotifications()
 
-        let time = await this.time.readValue() 
-        let intTime = time.getBigUint64(0,true)
-        console.log(`Time: ${intTime}`)
-        console.dir(time)
 
         this.fullRead()
    }
@@ -110,7 +163,12 @@ class uBit extends EventTarget {
     onNewLength(event) {
         // Updated length / new data
         let length = event.target.value.getUint32(0,true)
-        console.log(`Length: ${length}`)
+        let lastIndex = (this.rawData.length-1)*16
+        // If there's new data, update
+        if(this.dataLength != length) {
+            this.dataLength = length;
+            this.retrieveChunk(lastIndex, this.dataLength-lastIndex)
+        }
     }
 
     onSecurity(event) {
@@ -118,18 +176,33 @@ class uBit extends EventTarget {
         console.log(`Security: ${value}`)
     }
 
+    processData() {
+        let completeData = this.rawData.join('')
+        console.log(`Complete data\n${completeData}`)
+        /*
+            Have an index and work backwards through "new" data
+            Request any missing data
+            If no missing data, process to rows and add timestamps
+            Do callbacks to let interested parties know about new data (any data not already notified)
+        */
+
+    }
 
     onData(event) {
-        // First four bytes are index/offset this is in reply to...
+        // Stop any timer from running
+        if(this.onDataTimeoutHandler!=null) {
+            clearTimeout(this.onDataTimeoutHandler)
+            this.onDataTimeoutHandler = null
+        }
 
-        console.log(`New  data!!! ${event}`)
+        // First four bytes are index/offset this is in reply to...
+        // console.log(`New  data!!! ${event}`)
         let dv = event.target.value
 
         if(dv.byteLength>=4) {
             let index = dv.getUint32(0,true)
             
             let text =''
-            console.dir(dv)
             for(let i=4;i<dv.byteLength;i++) {
                 let val = dv.getUint8(i)
                 if(val!=0) {
@@ -137,41 +210,35 @@ class uBit extends EventTarget {
                 }
             }
 
-            console.log(`Text at ${index}: ${text}`)
-            console.log(`Hex: ${showHex(dv)}`)
+            // console.log(`Text at ${index}: ${text}`)
+            // console.log(`Hex: ${showHex(dv)}`)
 
-            this.completeData += text
+            // Use packet index, which is byte index/16
+            this.rawData[index/16] = text
+            // Not done:  Set the timeout
+           this.onDataTimeoutHandler = setTimeout(this.onDataTimeout, onDataTIMEOUT)
         } else if(event.target.value.byteLength==0) {
-            console.log("Done!")
-            console.log(`Complete data\n${this.completeData}`)
+            // Done: Do the check / processing / recovery (cancel timer)
+            this.processData() 
         }
+    }
 
+    onDataTimeout() {
+        // Stuff to do when onData is done
+        console.log("onDataTimeout")
+        this.onDataTimeoutHandler = null
+        this.processData()
     }
 
     onUsage(event) {
         let value = event.target.value.getUint16(0, true)/10.0
-        console.log(`New  usage  ${value}%`)
+        console.log(`New usage  ${value}%`)
     }
-
 
     onDisconnect() {
-        this.manager.dispatchEvent(new CustomEvent("disconnected", {detail: this} ));
+        this.manager.dispatchEvent(new CustomEvent("disconnected", {detail: this} ))
+        this.device.gatt.disconnect()
         this.disconnected()
-    }
-
-
-    async fullRead() {
-        // Get rid of existing data
-        this.completeData = ""
-        // Read all data
-        console.log("Full read")
-        let length = await this.dataLen.readValue()
-        let intLength = length.getUint32(0,true)
-        console.log(`Reading ${intLength}` )
-        let dv = new DataView(new ArrayBuffer(8))
-        dv.setUint32(0, 0, true)
-        dv.setUint32(4, intLength, true)
-        await this.dataReq.writeValue(dv)
     }
 
     disconnected() {
@@ -186,25 +253,35 @@ class uBit extends EventTarget {
         this.erase = null 
         this.usage = null
         this.time = null
+
+        this.mbConnectTime = null
+        this.wallClockConnectTime = null
+
+        if(this.onDataTimeoutHandler) {
+            cancelTimeout(this.onDataTimeoutHandler)
+            this.onDataTimeoutHandler = null
+        }
+    }
+
+    disconnect() {
+        this.device.gatt.disconnect()
     }
 }
 
 
 
 
-const SERVICE_UUID     = "accb4ce4-8a4b-11ed-a1eb-0242ac120002"  // BLE Service
 
 class uBitManager extends EventTarget  {
 
     constructor() {
         super()
-        // Code
+
         // Map of devices
         this.devices = new Map()
+
         this.connect = this.connect.bind(this)
     }
-
-  
 
     /**
      * Connect to a device
@@ -217,7 +294,7 @@ class uBitManager extends EventTarget  {
         if(services.length>0) {
             let service = services[0]
             let chars = await service.getCharacteristics()  
-        
+            // Add or update the device
             let uB = this.devices.get(device.id)
             if(!uB){
                 uB = new uBit(this)
@@ -231,6 +308,11 @@ class uBitManager extends EventTarget  {
             console.warn("No service found!")
         } 
     }
+
+    getDevices() {
+        return new Map(this.devices)
+    }
+
 }
 
 
