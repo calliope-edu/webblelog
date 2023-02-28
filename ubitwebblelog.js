@@ -19,7 +19,7 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-const onDataTIMEOUT = 5000
+const onDataTIMEOUT = 2000
 
 const SERVICE_UUID     = "accb4ce4-8a4b-11ed-a1eb-0242ac120002"  // BLE Service
 const serviceCharacteristics = new Map( 
@@ -33,6 +33,23 @@ const serviceCharacteristics = new Map(
      ["accb5be4-8a4b-11ed-a1eb-0242ac120002", "usage"],     // Usage	Read, Notify
      ["accb5dd8-8a4b-11ed-a1eb-0242ac120002", "time"]       // Time	Read
     ]);
+
+
+/*
+Class to track the state of data retrievals 
+*/ 
+class retrieveTask {
+    constructor(start, length) {
+        this.start = start    // Start index of the data (must be multiple of 16)
+        this.length = length  // Length of data requested (should be multiple of 16 for all but last)
+        this.segmentsRemaining = Math.ceil(length/16)  // Segments remaining to be retrieved
+        this.segmentsProcessedIndex = 0  // The index of segments that have been verified recireved so far
+        this.segmentEndIndex = this.segmentsRemaining // Index past last 
+        this.segments = new Array(this.segmentsRemaining) // Segment data 
+        console.log("New retrieve task: ")
+        console.dir(this)
+    }
+}
 
 class uBit extends EventTarget {
     constructor(manager) {
@@ -52,6 +69,7 @@ class uBit extends EventTarget {
         this.dataLength = null
 
         this.onDataTimeoutHandler = null  // Also tracks if a read is in progress
+        this.retrieveQueue = []
 
         // Bind methods
         this.onConnect = this.onConnect.bind(this)
@@ -64,7 +82,6 @@ class uBit extends EventTarget {
         this.onDisconnect = this.onDisconnect.bind(this)
 
         this.retrieveChunk = this.retrieveChunk.bind(this)
-        this.fullRead = this.fullRead.bind(this)
         this.disconnect = this.disconnect.bind(this)
 
         this.readLength = this.readLength.bind(this)
@@ -72,7 +89,7 @@ class uBit extends EventTarget {
         this.onDataTimeout = this.onDataTimeout.bind(this)
 
         this.processData = this.processData.bind(this)
-
+        this.requestChunk = this.requestChunk.bind(this)
 
         // Connection state management setup 
         this.disconnected()
@@ -84,16 +101,11 @@ class uBit extends EventTarget {
         return intLength        
     }
 
-    async retrieveChunk(startIndex, length) {
-        // Only works on byte index that is a multiple of 16. 
-
-        if(startIndex%16!=0) {
-            console.log(`Bad index: ${startIndex}`)
-            return
-        }
-        // Limit length to end of buffer 
-        length = Math.max(this.dataLength-startIndex, length)
-
+    /*
+      Request a chunk of data (for subset of full retrieve process)
+    */
+    async requestChunk(startIndex, length) {
+        console.log(`requestChunk: Requesting @${startIndex} ${length} bytes`)
         let dv = new DataView(new ArrayBuffer(8))
         dv.setUint32(0, startIndex, true)
         dv.setUint32(4, length, true)
@@ -104,10 +116,34 @@ class uBit extends EventTarget {
         this.onDataTimeoutHandler = setTimeout(this.onDataTimeout, onDataTIMEOUT)
     }
 
-    async fullRead() {
-        this.retrieveChunk(0, this.dataLength)
-    }
 
+    /**
+     * Retrieve a range of data and re-request until it's all delivered.
+     * Assuming to be non-overlapping calls.  I.e. this won't be called again until all data is delivered
+     * @param {*} startIndex 
+     * @param {*} length 
+     * @returns 
+     */
+    async retrieveChunk(startIndex, length) {
+        console.log(`retrieveChunk: Retrieving @${startIndex} ${length} bytes`)
+        // Only works on byte index that is a multiple of 16. 
+        if(startIndex%16!=0) {
+            console.log(`Bad index: ${startIndex}`)
+            return
+        }
+
+        // Limit length to end of buffer 
+        length = Math.max(this.dataLength-startIndex, length)
+        console.log(`retrieveChunk: Adjusted Length: ${length}`)
+        console.log(`Data Length: ${this.dataLength}`)
+        // Add to retrieve Queue
+        let retrieve = new retrieveTask(startIndex, length)
+        this.retrieveQueue.push(retrieve)
+        // If this is the only item in the queue, retuest the data
+        if(this.retrieveQueue.length==1) {
+            this.requestChunk(startIndex, length)
+        }
+    }
 
     async onConnect(service, chars, device) {
         // Add identity values if not already set (neither expected to change)
@@ -157,15 +193,18 @@ class uBit extends EventTarget {
         await this.usage.startNotifications()
 
 
-        this.fullRead()
-   }
+        this.retrieveChunk(0, this.dataLength)
+       }
    
     onNewLength(event) {
         // Updated length / new data
         let length = event.target.value.getUint32(0,true)
-        let lastIndex = (this.rawData.length-1)*16
+        console.log(`New Length: ${length} (was ${this.dataLength})`)
+
         // If there's new data, update
         if(this.dataLength != length) {
+            // Get the index of the last known value (since last update)
+            let lastIndex = (this.dataLength&0xFFFFFFF0)
             this.dataLength = length;
             this.retrieveChunk(lastIndex, this.dataLength-lastIndex)
         }
@@ -177,12 +216,56 @@ class uBit extends EventTarget {
     }
 
     processData() {
-        let completeData = this.rawData.join('')
-        console.log(`Complete data\n${completeData}`)
+        if(this.retrieveQueue.length==0) {
+            console.log('No retrieve queue')
+            return
+        }
+        let retrieve = this.retrieveQueue[0]
+        if(retrieve.segmentsRemaining==0) {
+
+            // Copy data to raw data  
+            for(let i=0;i<retrieve.segments.length;i++) {
+                if(retrieve.segments[i]==null) {
+                    console.log(`Null segment: ${i}`)
+                }
+                this.rawData[retrieve.start/16+i] = retrieve.segments[i]
+            }
+            // Process it... 
+            let completeData = this.rawData.join('')
+            console.log(`Complete data\n${completeData}`)
+
+            // Pop off the retrieval task
+            this.retrieveQueue.shift()
+            // If there's another one queued up, start it
+            if(this.retrieveQueue.length>0) {
+                // Request the next chunk
+                let nextRetrieve = this.retrieveQueue[0]
+                this.requestChunk(nextRetrieve.start, nextRetrieve.length)
+            }
+        } else {
+
+            if(retrieve.segmentsRemaining<0) {
+                console.log("Segments remaining is negative!")
+            }
+            // Iterate through completed segments
+            console.log('Missing packets')
+            console.dir(retrieve)
+            let expectedSegments = Math.ceil(retrieve.length/16)
+            while(retrieve.segments[retrieve.segmentsProcessedIndex]!=null && retrieve.segmentsProcessedIndex<expectedSegments) {
+                retrieve.segmentsProcessedIndex++
+            }
+            if(retrieve.segmentsProcessedIndex>=expectedSegments) {
+                console.log("ERROR: All segments processed and not done")
+            }
+            // Get the missing piece
+            this.requestChunk(retrieve.start+retrieve.segmentsProcessedIndex*16, 16)
+        }
+
         /*
             Have an index and work backwards through "new" data
             Request any missing data
             If no missing data, process to rows and add timestamps
+                Dictionaries for each sample:  All data elements and wall clock time (if known)
             Do callbacks to let interested parties know about new data (any data not already notified)
         */
 
@@ -210,15 +293,28 @@ class uBit extends EventTarget {
                 }
             }
 
-            // console.log(`Text at ${index}: ${text}`)
-            // console.log(`Hex: ${showHex(dv)}`)
+            console.log(`Text at ${index}: ${text}`)
+            console.log(`Hex: ${showHex(dv)}`)
 
             // Use packet index, which is byte index/16
-            this.rawData[index/16] = text
+            
+            let retrieve = this.retrieveQueue[0]
+            console.dir(retrieve)
+            let segmentIndex = (index - retrieve.start)/16;
+            if(retrieve.segments[segmentIndex]!=null) {
+                console.log("ERROR:  Segment already set")
+                console.log(retrieve.segments[segmentIndex])
+                console.log(text)
+            }
+            if(retrieve.segmentsRemaining<=0){ 
+                console.log("ERROR:  No segments remaining")
+            }
+            retrieve.segments[segmentIndex] = text
+            retrieve.segmentsRemaining--
             // Not done:  Set the timeout
            this.onDataTimeoutHandler = setTimeout(this.onDataTimeout, onDataTIMEOUT)
         } else if(event.target.value.byteLength==0) {
-            // Done: Do the check / processing / recovery (cancel timer)
+            // Done: Do the check / processing (timer already cancelled)
             this.processData() 
         }
     }
@@ -254,11 +350,13 @@ class uBit extends EventTarget {
         this.usage = null
         this.time = null
 
+        this.retrieveQueue = []
+
         this.mbConnectTime = null
         this.wallClockConnectTime = null
 
         if(this.onDataTimeoutHandler) {
-            cancelTimeout(this.onDataTimeoutHandler)
+            clearTimeout(this.onDataTimeoutHandler)
             this.onDataTimeoutHandler = null
         }
     }
