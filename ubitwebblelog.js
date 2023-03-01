@@ -242,6 +242,8 @@ class uBit extends EventTarget {
         // If there's new data, update
         if(this.dataLength != length) {
             // Get the index of the last known value (since last update)
+            // floor(n/16) = index of last full segment 
+            // ceil(n/16) = index of last segment total (or count of total segments)
             let lastIndex = Math.floor(this.dataLength/16)  // Index of first non-full segment
             let totalSegments = Math.ceil(length/16) // Total segments _now_
             this.dataLength = length;
@@ -343,6 +345,10 @@ class uBit extends EventTarget {
             
             let retrieve = this.retrieveQueue[0]
 
+// if(Math.random()<.01) {
+//     console.log("Dropped Packet")
+// } else {
+
             // console.dir(retrieve)
             let segmentIndex = (index/16 - retrieve.start);
             //console.log(`Index: ${index} Start: ${retrieve.start}  index: ${segmentIndex}`)
@@ -359,6 +365,7 @@ class uBit extends EventTarget {
             } else {
                 console.log(`ERROR:  Segment out of range ${segmentIndex} (max ${retrieve.segments.length}`)
             }
+// }  // END Dropped packet test
             // Not done:  Set the timeout
             this.setDataTimeout()
 
