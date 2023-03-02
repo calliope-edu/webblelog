@@ -48,6 +48,12 @@
         console.dir(e.detail)
         consolePrintln(`Disconnected from: ${e.detail.name}`)
     })
+
+    uBM.addEventListener("progress", (e)=> {
+        console.log(`Progress ${e.detail.device.name}: ${e.detail.progress}%`)
+        consolePrintln(`Progress ${e.detail.device.name}: ${e.detail.progress}%`)
+    })
+
     document.getElementById("connect").addEventListener("click", () => uBM.connect())
 
     document.getElementById("disconnect").addEventListener("click", () => {

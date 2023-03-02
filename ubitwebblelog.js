@@ -19,8 +19,9 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-const onDataTIMEOUT = 1500
+const onDataTIMEOUT = 500
 const dataBurstSIZE = 100
+const progressPacketThreshold = 10  // More than 10 packets and report progress of transfer
 
 
 const SERVICE_UUID     = "accb4ce4-8a4b-11ed-a1eb-0242ac120002"  // BLE Service
@@ -74,6 +75,7 @@ class uBit extends EventTarget {
 
         this.onDataTimeoutHandler = -1  // Also tracks if a read is in progress
         this.retrieveQueue = []
+        this.progressTotal = -1
 
         // Bind methods
         this.onConnect = this.onConnect.bind(this)
@@ -103,7 +105,7 @@ class uBit extends EventTarget {
     }
 
     clearDataTimeout() {
-//        console.log(`clearDataTimeout: handler ID ${this.onDataTimeoutHandler}`)
+        // console.log(`clearDataTimeout: handler ID ${this.onDataTimeoutHandler}`)
         if(this.onDataTimeoutHandler!=-1) {
             clearTimeout(this.onDataTimeoutHandler)
             this.onDataTimeoutHandler = -1
@@ -113,18 +115,19 @@ class uBit extends EventTarget {
     setDataTimeout() {
         this.clearDataTimeout()
         this.onDataTimeoutHandler = setTimeout(this.onDataTimeout, onDataTIMEOUT)
-//        console.log(`setDataTimeout: handler ID ${this.onDataTimeoutHandler}`)
+        // console.log(`setDataTimeout: handler ID ${this.onDataTimeoutHandler}`)
     }
 
     onDataTimeout() {
         // Stuff to do when onData is done
-        console.log("onDataTimeout")
+        // console.log("onDataTimeout")
         if(this.onDataTimeoutHandler!=-1) {
             this.clearDataTimeout()
             this.processChunk() 
-        } else {
-            console.log("onDataTimeout: Not needed")
-        }
+        } 
+        // else {
+        //     console.log("onDataTimeout: Not needed")
+        // }
     }
 
     async readLength() {
@@ -156,11 +159,20 @@ class uBit extends EventTarget {
      * @returns 
      */
     async retrieveChunk(start, length) {
-        console.log(`retrieveChunk: Retrieving @${start} ${length} *16 bytes`)
+        // console.log(`retrieveChunk: Retrieving @${start} ${length} *16 bytes`)
         if(start*16>this.dataLength) {
             console.log(`retrieveChunk: Start index ${start} is beyond end of data`)
             return
         }  
+
+        // Update progress if this is a significant request
+        if(length>progressPacketThreshold) {
+            // console.log("retrieveChunk: Progress update")
+            this.progressTotal = length
+            this.manager.dispatchEvent(new CustomEvent("progress", {detail: {device:this, progress:0}}))
+        } else {
+            this.progressTotal = -1
+        }
 
         if(start + length > Math.ceil(this.dataLength/16)) {  
             console.log(`retrieveChunk: Requested data extends beyond end of data`)
@@ -258,13 +270,13 @@ class uBit extends EventTarget {
     }
 
     processChunk() {
-        console.log("processChunk")
+        // console.log("processChunk")
         if(this.retrieveQueue.length==0) {
             console.log('No retrieve queue')
             return
         }
         let retrieve = this.retrieveQueue[0]
-        console.dir(retrieve)
+        // console.dir(retrieve)
 
         // If done
         if(retrieve.processed==retrieve.segments.length) {
@@ -275,8 +287,17 @@ class uBit extends EventTarget {
                 // Request the next chunk
                 let nextRetrieve = this.retrieveQueue[0]
                 this.requestSegment(nextRetrieve.start, nextRetrieve.segments.length)
+                if(this.progressTotal>0) {
+                    let remaining = this.retrieveQueue.reduce((a,b) => a+b.segments.length, 0)
+                    let percent = Math.max(0, Math.min(100, Math.round(100*(1-remaining/this.progressTotal))))
+                    this.manager.dispatchEvent(new CustomEvent("progress", {detail: {device:this, progress:percent}}))
+                }
             } else {
                 console.log("Task Queue empty")
+                if(this.progressTotal>0) {
+                    this.progressTotal = -1
+                    this.manager.dispatchEvent(new CustomEvent("progress", {detail: {device:this, progress:100}}))
+                }
             }
 
             // Copy data to raw data  
@@ -293,8 +314,8 @@ class uBit extends EventTarget {
 
         } else {
             // Iterate through completed segments
-            console.log('Missing packets')
-            console.dir(retrieve)
+            // console.log('Missing packets')
+            // console.dir(retrieve)
 
             // Advance to next missing packet
             while(retrieve.processed<retrieve.segments.length && retrieve.segments[retrieve.processed]!=null) {
@@ -365,14 +386,20 @@ class uBit extends EventTarget {
             } else {
                 console.log(`ERROR:  Segment out of range ${segmentIndex} (max ${retrieve.segments.length}`)
             }
-// }  // END Dropped packet test
+//  }  // END Dropped packet test
             // Not done:  Set the timeout
             this.setDataTimeout()
-
         } else if(event.target.value.byteLength==0) {
             // Done: Do the check / processing (timer already cancelled)
-            console.log("Terminal packet.")
+            // console.log("Terminal packet.")
+// if(Math.random()<.10) {
             this.processChunk() 
+// } else {
+//     // Simulate timeout
+//     console.log("Dropped terminal packet")
+//     this.setDataTimeout()
+// }
+
         } else {
             console.log(`ERROR:  Unexpected data length ${event.target.value.byteLength}`)
         }
@@ -409,6 +436,8 @@ class uBit extends EventTarget {
         this.mbConnectTime = null
         this.wallClockConnectTime = null
         this.clearDataTimeout()
+
+        this.progressTotal = -1
     }
 
     disconnect() {
