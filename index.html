@@ -37,11 +37,13 @@
     }
 
     let uBM = new uBitManager()
+    let d = null
     // Make the "go" button open the request devices box
     uBM.addEventListener("connected", (e)=> {
         console.log("New Device connected")
         console.dir(e.detail)
         consolePrintln(`Connected to: ${e.detail.name}`)
+        d = e.detail
     })
     uBM.addEventListener("disconnected", (e)=> {
         console.log("Device disconnected")

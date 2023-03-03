@@ -87,3 +87,15 @@ TODO
 ## Example
 
 See [`index.html`](./index.html) for a complete example application.
+
+
+# TODO Log
+
+1. set/get uBit label
+2. Initial load: Only new data
+3. Parsing data and adding time stamps
+4. In onNewLength:  If length == 0 (reset), erase store 
+5. Cleanup / checking
+6. Retrieval of all data
+7. Docs.
+8. Disconnect should terminate any pending "progress" stuff???

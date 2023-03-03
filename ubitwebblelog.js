@@ -64,7 +64,8 @@ class uBit extends EventTarget {
         this.id = null;
         this.label = null; 
         this.name = null;
-
+        this.password = null
+        this.passwordAttempts = 0
         // Object ownership 
         this.manager = manager
 
@@ -76,6 +77,7 @@ class uBit extends EventTarget {
         this.onDataTimeoutHandler = -1  // Also tracks if a read is in progress
         this.retrieveQueue = []
         this.progressTotal = -1
+
 
         // Bind methods
         this.onConnect = this.onConnect.bind(this)
@@ -99,7 +101,8 @@ class uBit extends EventTarget {
         this.clearDataTimeout = this.clearDataTimeout.bind(this)
         this.setDataTimeout = this.setDataTimeout.bind(this)
         this.onDataTimeout = this.onDataTimeout.bind(this)
-
+        this.onAuthorized = this.onAuthorized.bind(this)
+        
         // Connection state management setup 
         this.disconnected()
     }
@@ -141,12 +144,14 @@ class uBit extends EventTarget {
     */
     async requestSegment(start, length) {
         console.log(`requestSegment: Requesting @ ${start} ${length} *16 bytes`)
-        let dv = new DataView(new ArrayBuffer(8))
-        dv.setUint32(0, start*16, true)
-        dv.setUint32(4, length*16, true)
-        await this.dataReq.writeValue(dv)
-        this.clearDataTimeout()
-        this.setDataTimeout()
+        if(this.device && this.device.gatt && this.device.gatt.connected) {
+            let dv = new DataView(new ArrayBuffer(8))
+            dv.setUint32(0, start*16, true)
+            dv.setUint32(4, length*16, true)
+            await this.dataReq.writeValue(dv)
+            this.clearDataTimeout()
+            this.setDataTimeout()    
+        }
     }
 
 
@@ -197,6 +202,7 @@ class uBit extends EventTarget {
     }
 
     async onConnect(service, chars, device) {
+        console.log("onConnect")
         // Add identity values if not already set (neither expected to change)
         this.id = this.id || device.id   
         this.name = this.name || device.name 
@@ -205,7 +211,7 @@ class uBit extends EventTarget {
         this.device = device 
         this.chars = chars 
         this.service = service
-
+        this.passwordAttempts = 0
         this.chars.forEach(element => {
             let charName = serviceCharacteristics.get(element.uuid)
             if(charName!=null) {
@@ -215,6 +221,26 @@ class uBit extends EventTarget {
             }
         });
 
+        console.log("connected")
+
+        // Connect / disconnect handlers
+        this.manager.dispatchEvent(new CustomEvent("connected", {detail: this}))
+
+        console.log("setting disconnect handler")
+
+        this.device.addEventListener('gattserverdisconnected', () => {
+            this.onDisconnect()}, {once:true});
+
+        console.log("setting security handler")
+
+        this.security.addEventListener('characteristicvaluechanged', this.onSecurity)
+        await this.security.startNotifications()
+    }
+   
+
+    async onAuthorized() {
+        console.log("onAuthorized")
+        // Subscribe to characteristics / notifications
         // Initial reads (need to be before notifies
         let time = await this.time.readValue() 
         let intTime = time.getBigUint64(0,true)
@@ -224,18 +250,8 @@ class uBit extends EventTarget {
 
         this.dataLength = await this.readLength()
 
-        // Connect / disconnect handlers
-        this.manager.dispatchEvent(new CustomEvent("connected", {detail: this}))
-    
-        this.device.addEventListener('gattserverdisconnected', () => {
-            this.onDisconnect()}, {once:true});
-
-        // Subscribe to characteristics / notifications
         this.dataLen.addEventListener('characteristicvaluechanged', this.onNewLength)
         await this.dataLen.startNotifications()
-
-        this.security.addEventListener('characteristicvaluechanged', this.onSecurity)
-        await this.security.startNotifications()
 
         this.data.addEventListener('characteristicvaluechanged', this.onData)
         await this.data.startNotifications()
@@ -244,8 +260,9 @@ class uBit extends EventTarget {
         await this.usage.startNotifications()
 
         this.retrieveChunk(0, Math.ceil(this.dataLength/16))
-       }
-   
+    }
+       
+
     onNewLength(event) {
         // Updated length / new data
         let length = event.target.value.getUint32(0,true)
@@ -253,6 +270,10 @@ class uBit extends EventTarget {
 
         // If there's new data, update
         if(this.dataLength != length) {
+
+            // TODO:  IF length == 0, erase all data stored (log erased)
+
+
             // Get the index of the last known value (since last update)
             // floor(n/16) = index of last full segment 
             // ceil(n/16) = index of last segment total (or count of total segments)
@@ -264,8 +285,47 @@ class uBit extends EventTarget {
         }
     }
 
+    sendErase() {
+        console.log(`sendErase`)
+        if(this.device && this.device.gatt && this.device.gatt.connected) {
+            let dv = new DataView(new ArrayBuffer(5))
+            let i = 0
+            for(let c of "ERASE") {
+                dv.setUint8(i++, c.charCodeAt(0))
+            }
+            this.erase.writeValue(dv)
+        }
+    }
+
+    sendAuthorization(password) {
+        console.log(`sendAuthorization: ${password}`)
+        if(this.device && this.device.gatt && this.device.gatt.connected) {
+            let dv = new DataView(new ArrayBuffer(password.length))
+            let i = 0
+            for(let c of password) {
+                dv.setUint8(i++, c.charCodeAt(0))
+            }
+            this.passphrase.writeValue(dv)
+            this.password = password
+        }
+    }
+
     onSecurity(event) {
+        console.log(`onSecurity`)
+
         let value = event.target.value.getUint8()
+        if(value!=0) {
+            this.onAuthorized()
+        } else {
+            if(this.password!=null && this.passwordAttempts==0) {
+                // If we're on the first connect and we have a stored password, try it
+                this.sendAuthorization(this.password)
+                this.passwordAttempts++
+            } else {
+                // Need a password or password didn't work
+                this.manager.dispatchEvent(new CustomEvent("unauthorized", {detail: this}))
+            }
+        }
         console.log(`Security: ${value}`)
     }
 
@@ -478,10 +538,10 @@ class uBitManager extends EventTarget  {
                 this.devices.set(device.id, uB)
             }
             await uB.onConnect(service, chars, device)
-
-            // Success!
-            // TODO: Check for re-connect or initial connect
         } else {
+            await uB.devices.gatt.disconnect()
+            this.manager.dispatchEvent("no blelog services")
+
             console.warn("No service found!")
         } 
     }
