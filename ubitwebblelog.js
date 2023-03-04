@@ -125,8 +125,7 @@ class uBit extends EventTarget {
         // Connection Management
         this.firstConnectionUpdate = false
 
-
-        // Bind Callback methods
+        // Bind Callback methods (all BLE callbacks)
         this.onConnect = this.onConnect.bind(this)
         this.onNewLength = this.onNewLength.bind(this)
         this.onSecurity = this.onSecurity.bind(this)
@@ -134,29 +133,27 @@ class uBit extends EventTarget {
         this.onUsage = this.onUsage.bind(this)
         this.onDisconnect = this.onDisconnect.bind(this)
 
-
-        this.disconnected = this.disconnected.bind(this)
-
-        this.retrieveChunk = this.retrieveChunk.bind(this)
-        this.disconnect = this.disconnect.bind(this)
-
-        this.readLength = this.readLength.bind(this)
-        this.notifyDataProgress = this.notifyDataProgress.bind(this)
-
-        this.checkChunk = this.checkChunk.bind(this)
-        this.processChunk = this.processChunk.bind(this)
-        this.requestSegment = this.requestSegment.bind(this)
-
-        this.clearDataTimeout = this.clearDataTimeout.bind(this)
-        this.setDataTimeout = this.setDataTimeout.bind(this)
+        // Bind timeout callbacks
         this.onDataTimeout = this.onDataTimeout.bind(this)
-        this.onAuthorized = this.onAuthorized.bind(this)
-        
-        this.download = this.download.bind(this)
-        this.parseData = this.parseData.bind(this)
-        this.startNextRetrieve = this.startNextRetrieve.bind(this)
 
+        // Bind internal callbacks
         this.onConnectionSyncCompleted = this.onConnectionSyncCompleted.bind(this)
+
+        // this.retrieveChunk = this.retrieveChunk.bind(this)
+        // this.disconnect = this.disconnect.bind(this)
+        // this.readLength = this.readLength.bind(this)
+        // this.notifyDataProgress = this.notifyDataProgress.bind(this)
+        // this.checkChunk = this.checkChunk.bind(this)
+        // this.processChunk = this.processChunk.bind(this)
+        // this.requestSegment = this.requestSegment.bind(this)
+        // this.clearDataTimeout = this.clearDataTimeout.bind(this)
+        // this.setDataTimeout = this.setDataTimeout.bind(this)
+        // this.onAuthorized = this.onAuthorized.bind(this)        
+        // this.download = this.download.bind(this)
+        // this.parseData = this.parseData.bind(this)
+        // this.startNextRetrieve = this.startNextRetrieve.bind(this)
+        // this.disconnected = this.disconnected.bind(this)
+
         // Connection state management setup 
         this.disconnected()
     }
@@ -190,11 +187,11 @@ class uBit extends EventTarget {
         } 
     }
 
-    async readLength() {
-        let length = await this.dataLen.readValue()
-        let intLength = length.getUint32(0,true)
-        return intLength        
-    }
+    // async readLength() {
+    //     let length = await this.dataLen.readValue()
+    //     let intLength = length.getUint32(0,true)
+    //     return intLength        
+    // }
 
     /*
       Request a chunk of data (for subset of full retrieve process)
@@ -223,7 +220,7 @@ class uBit extends EventTarget {
      * @param {*} length Number of 16-byte segments to retrieve
      * @returns 
      */
-    async retrieveChunk(start, length, success = null) {
+    retrieveChunk(start, length, success = null) {
         console.log(`retrieveChunk: Retrieving @${start} ${length} *16 bytes`)
         if(start*16>this.dataLength) {
             console.log(`retrieveChunk: Start index ${start} is beyond end of data`)
@@ -321,7 +318,7 @@ class uBit extends EventTarget {
     onNewLength(event) {
         // Updated length / new data
         let length = event.target.value.getUint32(0,true)
-        console.log(`New Length: ${length} (was ${this.dataLength})`)
+        // console.log(`New Length: ${length} (was ${this.dataLength})`)
 
         // If there's new data, update
         if(this.dataLength != length) {
@@ -345,8 +342,7 @@ class uBit extends EventTarget {
             // Retrieve checks dataLength;  Must update it first;  
             this.retrieveChunk(lastIndex, 
                                 totalSegments-lastIndex, 
-                                this.firstConnectionUpdate ? this.onConnectionSyncCompleted : null)
-            this.firstConnectionUpdate = false
+                                this.onConnectionSyncCompleted)
         }
     }
 
@@ -455,7 +451,10 @@ class uBit extends EventTarget {
     }
 
     onConnectionSyncCompleted() {
-        console.log("onConnectionSyncCompleted")
+        if(this.firstConnectionUpdate) {
+            this.firstConnectionUpdate = false
+            console.log("onConnectionSyncCompleted")
+        }
     }
 
     processChunk(retrieve) {
@@ -600,12 +599,16 @@ class uBit extends EventTarget {
     }
 
     discardRetrieveQueue() {
+        // If there's a transfer in-progress, notify it is completed
         if(this.retrieveQueue.length>0 && this.retrieveQueue[0].progress>=0) {
             this.notifyDataProgress(100)
         }
         while(this.retrieveQueue.pop()) {}
     }
 
+    /*
+     * Update state after a disconnect
+     */
     disconnected() {
         this.device = null
         this.service = null
@@ -628,6 +631,9 @@ class uBit extends EventTarget {
         this.clearDataTimeout()
     }
 
+    /**
+     * Request a disconnect
+     */
     disconnect() {
         if(this.device && this.device.gatt && this.device.gatt.connected) {
             this.device.gatt.disconnect()
