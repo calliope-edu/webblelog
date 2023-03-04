@@ -43,21 +43,27 @@
     let d = null
     // Make the "go" button open the request devices box
     uBM.addEventListener("connected", (e)=> {
-        console.log("New Device connected")
-        console.dir(e.detail)
+        // console.log("New Device connected")
+        // console.dir(e.detail)
         consolePrintln(`Connected to: ${e.detail.name}`)
         d = e.detail
     })
     uBM.addEventListener("disconnected", (e)=> {
-        console.log("Device disconnected")
-        console.dir(e.detail)
+        // console.log("Device disconnected")
+        // console.dir(e.detail)
         consolePrintln(`Disconnected from: ${e.detail.name}`)
     })
 
     uBM.addEventListener("progress", (e)=> {
-        console.log(`Progress ${e.detail.device.name}: ${e.detail.progress}%`)
+        // console.log(`Progress ${e.detail.device.name}: ${e.detail.progress}%`)
         consolePrintln(`Progress ${e.detail.device.name}: ${e.detail.progress}%`)
     })
+
+    uBM.addEventListener("log usage", (e)=> {
+        // console.log(`Log Usage ${e.detail.device.name}: ${e.detail.percent}%`)
+        consolePrintln(`Log Usage ${e.detail.device.name}: ${e.detail.percent}%`)
+    })
+
 
     document.getElementById("connect").addEventListener("click", () => uBM.connect())
 

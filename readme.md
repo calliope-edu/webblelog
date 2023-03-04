@@ -64,6 +64,10 @@ datalogger.setColumnTitles(
 
 * "connected":  data.detail is the device that connected
 * "disconnected": data.detail is the device that disconnected
+* "unauthorized" : data.detail is device that needs valid password
+* "progress":  data.detail.device is device.  data.detail.progress is progress (0-100)
+* "graph cleared":  data.detail is the device that connected
+
 
 ## uBitManager
 
