@@ -17,6 +17,9 @@
         <div class="row header">
                 <button id="clear" class="button">Clear Console</button>
         </div>
+        <div class="row header">
+            <button id="download" class="button">Download CSV (last connected & while connected)</button>
+        </div>
 
         <div id="console" class="row content" style="overflow:auto;border:4px solid black;padding:2%">
             Waiting for connection.
@@ -63,6 +66,8 @@
             device.disconnect()
         }
     })
+
+    document.getElementById("download").addEventListener("click", () => d && d.download("data.csv"))
 
 </script>
 

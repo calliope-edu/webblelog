@@ -13,6 +13,26 @@ function showHex(dv) {
     return str
 }
 
+
+function download(data, filename, type) {
+    var file = new Blob([data], {type: type});
+    if (window.navigator.msSaveOrOpenBlob) // IE10+
+        window.navigator.msSaveOrOpenBlob(file, filename);
+    else { // Others
+        var a = document.createElement("a"),
+                url = URL.createObjectURL(file);
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);  
+        }, 0); 
+    }
+}
+
+
 // https://stackoverflow.com/questions/951021/what-is-the-javascript-version-of-sleep
 // Testing / timing
 function sleep(ms) {
@@ -27,14 +47,14 @@ const progressPacketThreshold = 10  // More than 10 packets and report progress 
 const SERVICE_UUID     = "accb4ce4-8a4b-11ed-a1eb-0242ac120002"  // BLE Service
 const serviceCharacteristics = new Map( 
     [
-     ["accb4f64-8a4b-11ed-a1eb-0242ac120002", "security"],  // Security	Read, Notify
+     ["accb4f64-8a4b-11ed-a1eb-0242ac120002", "security"],    // Security	Read, Notify
      ["accb50a4-8a4b-11ed-a1eb-0242ac120002", "passphrase"],  // Passphrase	Write
-     ["accb520c-8a4b-11ed-a1eb-0242ac120002", "dataLen"],   // Data Length	Read, Notify
-     ["accb53ba-8a4b-11ed-a1eb-0242ac120002", "data"],      // Data	Notify
-     ["accb552c-8a4b-11ed-a1eb-0242ac120002", "dataReq"],   // Data Request	Write
-     ["accb5946-8a4b-11ed-a1eb-0242ac120002", "erase"],     // Erase	Write
-     ["accb5be4-8a4b-11ed-a1eb-0242ac120002", "usage"],     // Usage	Read, Notify
-     ["accb5dd8-8a4b-11ed-a1eb-0242ac120002", "time"]       // Time	Read
+     ["accb520c-8a4b-11ed-a1eb-0242ac120002", "dataLen"],     // Data Length	Read, Notify
+     ["accb53ba-8a4b-11ed-a1eb-0242ac120002", "data"],        // Data	Notify
+     ["accb552c-8a4b-11ed-a1eb-0242ac120002", "dataReq"],     // Data Request	Write
+     ["accb5946-8a4b-11ed-a1eb-0242ac120002", "erase"],       // Erase	Write
+     ["accb5be4-8a4b-11ed-a1eb-0242ac120002", "usage"],       // Usage	Read, Notify
+     ["accb5dd8-8a4b-11ed-a1eb-0242ac120002", "time"]         // Time	Read
     ]);
 
 
@@ -103,8 +123,16 @@ class uBit extends EventTarget {
         this.onDataTimeout = this.onDataTimeout.bind(this)
         this.onAuthorized = this.onAuthorized.bind(this)
         
+        this.download = this.download.bind(this)
+
         // Connection state management setup 
         this.disconnected()
+    }
+
+    download(filename) {
+        let completeData = this.rawData.join('')
+
+        download(completeData, filename, "csv")
     }
 
     clearDataTimeout() {
@@ -196,7 +224,7 @@ class uBit extends EventTarget {
         }
 
         // If nothing is being processed now, start it
-        if(startNew) {
+        if(startNew && this.retrieveQueue.length>0) {
             this.requestSegment(this.retrieveQueue[0].start, this.retrieveQueue[0].segments.length)
         }
     }
@@ -259,7 +287,17 @@ class uBit extends EventTarget {
         this.usage.addEventListener('characteristicvaluechanged', this.onUsage)
         await this.usage.startNotifications()
 
-        this.retrieveChunk(0, Math.ceil(this.dataLength/16))
+        let lastFullRow = 0
+        if(this.rawData.length>0) {
+            let lastItem = this.rawData[this.rawData.length-1]
+            if(lastItem.length==16) {
+                lastFullRow = this.rawData.length
+            } else {
+                lastFullRow = this.rawData.length-1
+            }
+        }
+        // Get any new data
+        this.retrieveChunk(lastFullRow, Math.ceil(this.dataLength/16)-lastFullRow)
     }
        
 
@@ -271,8 +309,16 @@ class uBit extends EventTarget {
         // If there's new data, update
         if(this.dataLength != length) {
 
-            // TODO:  IF length == 0, erase all data stored (log erased)
-
+            // Probably erased.  Retrieve it all
+            if(length<this.dataLength) {
+                console.log("Log smaller than expected.  Retrieving all data")
+                this.rawData = []
+                this.dataLength = 0
+                // Flush any pending requests
+                while(this.retrieveQueue.pop()) {
+                    // Do nothing
+                }
+            }
 
             // Get the index of the last known value (since last update)
             // floor(n/16) = index of last full segment 
@@ -491,7 +537,7 @@ class uBit extends EventTarget {
         this.usage = null
         this.time = null
 
-        this.retrieveQueue = []
+        while(this.retrieveQueue.pop()) {}
 
         this.mbConnectTime = null
         this.wallClockConnectTime = null
@@ -501,7 +547,9 @@ class uBit extends EventTarget {
     }
 
     disconnect() {
-        this.device.gatt.disconnect()
+        if(this.device && this.device.gatt && this.device.gatt.connected) {
+            this.device.gatt.disconnect()
+        }
     }
 }
 
