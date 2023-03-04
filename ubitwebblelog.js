@@ -14,6 +14,15 @@ function showHex(dv) {
 }
 
 
+// Thanks to https://stackoverflow.com/questions/21647928/javascript-unicode-string-to-hex
+function convertToHex(str) {
+    var hex = '';
+    for(var i=0;i<str.length;i++) {
+        hex += ''+str.charCodeAt(i).toString(16);
+    }
+    return hex;
+}
+
 function download(data, filename, type) {
     var file = new Blob([data], {type: type});
     if (window.navigator.msSaveOrOpenBlob) // IE10+
@@ -84,41 +93,49 @@ class uBit extends EventTarget {
     constructor(manager) {
         super()
 
-        // Identification data 
+        // Device Identification data 
         this.id = null;
         this.label = null; 
         this.name = null;
+
+        // Authentication data
         this.password = null
         this.passwordAttempts = 0
+
         // Object ownership 
         this.manager = manager
 
+        // "CSV" raw packets and overall length of data on device
         this.rawData = []
-        this.rows = [] 
-        this.timestamps = []
         this.dataLength = null
 
-
+        // Managing Data retrieval 
         this.onDataTimeoutHandler = -1  // Also tracks if a read is in progress
         this.retrieveQueue = []
 
+
+        // Parsing data
         this.bytesProcessed = 0
         this.nextDataAfterReboot = false
         this.headers = []
         this.indexOfTime = 0
+        this.rows = [] 
+        this.timestamps = []
 
+        // Connection Management
         this.firstConnectionUpdate = false
 
 
-        // Bind methods
+        // Bind Callback methods
         this.onConnect = this.onConnect.bind(this)
         this.onNewLength = this.onNewLength.bind(this)
         this.onSecurity = this.onSecurity.bind(this)
-
-        this.disconnected = this.disconnected.bind(this)
         this.onData = this.onData.bind(this)
         this.onUsage = this.onUsage.bind(this)
         this.onDisconnect = this.onDisconnect.bind(this)
+
+
+        this.disconnected = this.disconnected.bind(this)
 
         this.retrieveChunk = this.retrieveChunk.bind(this)
         this.disconnect = this.disconnect.bind(this)
@@ -462,16 +479,10 @@ class uBit extends EventTarget {
             this.rawData[retrieve.start+i] = retrieve.segments[i]
         }
 
-        // // Process the segment 
-        // let completeData = this.rawData.join('')
-        // console.log(`Complete data\n${completeData}`)
-        // this.parseData()
-
         // If we're done with the entire transaction, call the completion handler if one
         if(retrieve.success) {
             retrieve.success()
         }
-        
     }
 
     checkChunk() {
@@ -583,9 +594,9 @@ class uBit extends EventTarget {
     }
 
     onDisconnect() {
-        this.manager.dispatchEvent(new CustomEvent("disconnected", {detail: this} ))
         this.device.gatt.disconnect()
         this.disconnected()
+        this.manager.dispatchEvent(new CustomEvent("disconnected", {detail: this} ))
     }
 
     discardRetrieveQueue() {
