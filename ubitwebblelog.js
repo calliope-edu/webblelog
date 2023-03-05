@@ -78,6 +78,7 @@ class uBit extends EventTarget {
     /**
      * Constructor for a micro:bit object
      * @param {*} manager 
+     * @private
      */
     constructor(manager) {
         super()
