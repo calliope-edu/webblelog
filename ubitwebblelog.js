@@ -35,6 +35,7 @@ class retrieveTask {
      * @param {*} progress Progress of the task (0-100) at the start of this bundle or null (-1) if not shown
      * @param {*} final indicator of final bundle for request
      * @param {*} success Callback function for success (completion)
+     * @private
      */
     constructor(start, length, progress = -1, final, success = null) {
         this.start = start    // Start index of the data
@@ -52,8 +53,8 @@ class retrieveTask {
 class uBit extends EventTarget {
     /**
      * Constructor for a micro:bit object
-     * @param {*} manager 
-     * @private
+     * @param {uBitManager} manager 
+     * @hideconstructor
      */
     constructor(manager) {
         super()
@@ -905,11 +906,11 @@ class uBitManager extends EventTarget  {
     }
 
     /**
-     * 
-     * @returns Get Map of all devices (that have been connected to in the past)
+     * Get a map of ids to all known devices
+     * @returns Get Map of unique device id to device (devices that have been connected to in the past)
      */
     getDevices() {
-        return new Map(this.devices)
+        return this.devices
     }
 
 }

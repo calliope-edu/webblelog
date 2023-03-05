@@ -60,37 +60,53 @@ datalogger.setColumnTitles(
 
 # API
 
-# Events 
-
-* "connected":  data.detail is the device that connected
-  * {detail: {device: this}}
-* "disconnected": data.detail.device is the device that disconnected
-  * {device:this}
-* "log usage":
-  * {detail: {device: this, percent: value}}
-* "progress": data.detail.device is device.  data.detail.progress is progress (0-100)
-  *  {device:this, progress:progress} 
-* "data ready" New data is ready (the length of the log has changed.  Final values, including time stamps are included)
-  * {detail: {device: this}}
-* "unauthorized" : data.detail is device that needs valid password
-  * {detail: {device: this}}
-* "graph-cleared":  data.detail is the device that connected
-  * {detail: {device: this}}
-* "row-updated":
-  * {detail: {device: this, row: rowIndex, data: this.rows[rowIndex], headers: this.fullHeaders}}
 
 
-
-## uBitManager
+## Class Diagrams
 
 ```mermaid
 classDiagram
     class uBitManager {
-      +void connect()
-      +[uBit] microbits
-
+      +(async) void  connect()
+      +Map(any:uBit) getDevices() 
     }
+
+    class uBit {
+      +void  disconnect()
+      +string getLabel()
+      +void setLabel()
+      +[string] getCSV()
+      +[string] getRawCSV()
+      +[string] getHeaders()
+      +[[string]] getData(start, end)
+      +int getDataLength()
+      +void sendErase()
+      +void sendAuthorization(string)
+    }
+
+    uBitManager "1" *-- "*" uBit
+
+    %%link uBitManager "./docs/docs/uBitManager.html" "Link"
+    %%link uBit "./docs/docs/uBit.html" "Link"
 ```
+
+## Sequences
+
+### Connection 
+
+```mermaid
+sequenceDiagram
+  participant Front end
+  participant uBitManager 
+
+Front end ->> uBitManager: connect()
+
+
+```
+
+
+
+
 
 ## Summary
 
@@ -100,6 +116,12 @@ TODO
 
 [JSDocs Here](https://bsiever.github.io/microbit-webblelog/docs/index.html)
 
+### Regenerate
+
+```
+jsdoc ubitwebblelog.js -r jsdoc.md -d docs
+```
+
 ## Example
 
 See [`index.html`](./index.html) for a complete example application.
@@ -107,16 +129,5 @@ See [`index.html`](./index.html) for a complete example application.
 
 # TODO Log
 
-1. set/get uBit label
-2. Initial load: Only new data
-3. Parsing data and adding time stamps
-4. In onNewLength:  If length == 0 (reset), erase store 
-5. Cleanup / checking
-6. Retrieval of all data
-7. Docs.
-8. Disconnect should terminate any pending "progress" stuff???
 
 
-## JSDoc 
-
-jsdoc ubitwebblelog.js -r jsdoc.md -d docs
