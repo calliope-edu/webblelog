@@ -4,25 +4,13 @@
  * (Only works in Chrome browsers;  Pages must be either HTTPS or local)
  */
 
-// Debugging / Private 
-function showHex(dv) {
-    let str = ""
-    for(let i=0; i<dv.byteLength; i++) {
-        str += ` ${dv.getUint8(i).toString(16)}`
-    }
-    return str
-}
 
-
-// Thanks to https://stackoverflow.com/questions/21647928/javascript-unicode-string-to-hex
-function convertToHex(str) {
-    var hex = '';
-    for(var i=0;i<str.length;i++) {
-        hex += ''+str.charCodeAt(i).toString(16);
-    }
-    return hex;
-}
-
+/**
+ * Download the given string data as a file
+ * @param {*} data String (file contents) to download
+ * @param {*} filename The file name (include extension)
+ * @param {*} type the extension (".csv")
+ */
 function download(data, filename, type) {
     var file = new Blob([data], {type: type});
     if (window.navigator.msSaveOrOpenBlob) // IE10+
@@ -41,17 +29,9 @@ function download(data, filename, type) {
     }
 }
 
-
-// https://stackoverflow.com/questions/951021/what-is-the-javascript-version-of-sleep
-// Testing / timing
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-const onDataTIMEOUT = 1000
-const dataBurstSIZE = 100
+const onDataTIMEOUT = 1000          // Timeout after 1 second of no data (and expecting more)
+const dataBurstSIZE = 100           // Number of packets to request at in a burst 
 const progressPacketThreshold = 10  // More than 10 packets and report progress of transfer
-
 
 const SERVICE_UUID     = "accb4ce4-8a4b-11ed-a1eb-0242ac120002"  // BLE Service
 const serviceCharacteristics = new Map( 
@@ -72,7 +52,7 @@ Class to track the state of data retrievals
 */ 
 class retrieveTask {
     /**
-     * 
+     * Task for the retrieval queue for data
      * @param {*} start 16-byte aligned start index (actual data index is "start*16")
      * @param {*} length Number of 16-byte segments to retrieve 
      * @param {*} progress Progress of the task (0-100) at the start of this bundle or null (-1) if not shown
@@ -89,6 +69,9 @@ class retrieveTask {
     }
 }
 
+/**
+ * Class to manage an individual micro:bit device
+ */
 class uBit extends EventTarget {
     constructor(manager) {
         super()
