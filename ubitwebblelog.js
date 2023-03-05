@@ -451,7 +451,7 @@ class uBit extends EventTarget {
                 }
             } else {
                 let parts = line.split(",")
-                console.log(`Data: ${parts} ${parts.length} ${this.headers.length}`)
+                //console.log(`Data: ${parts} ${parts.length} ${this.headers.length}`)
                 if(parts.length != this.headers.length) {
                     console.log(`Invalid line: ${line} ${this.bytesProcessed}`)
                 } else {
