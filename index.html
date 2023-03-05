@@ -45,28 +45,29 @@
     uBM.addEventListener("connected", (e)=> {
         // console.log("New Device connected")
         // console.dir(e.detail)
-        consolePrintln(`Connected to: ${e.detail.name}`)
-        d = e.detail
+        consolePrintln(`Connected to: ${e.detail.device.getLabel()}`)
+        d = e.detail.device
     })
+    
     uBM.addEventListener("disconnected", (e)=> {
         // console.log("Device disconnected")
         // console.dir(e.detail)
-        consolePrintln(`Disconnected from: ${e.detail.name}`)
+        consolePrintln(`Disconnected from: ${e.detail.device.getLabel()}`)
     })
 
     uBM.addEventListener("progress", (e)=> {
-        // console.log(`Progress ${e.detail.device.name}: ${e.detail.progress}%`)
-        consolePrintln(`Progress ${e.detail.device.name}: ${e.detail.progress}%`)
+        // console.log(`Progress ${e.detail.device.getLabel()}: ${e.detail.progress}%`)
+        consolePrintln(`Progress ${e.detail.device.getLabel()}: ${e.detail.progress}%`)
     })
 
     uBM.addEventListener("log usage", (e)=> {
-        // console.log(`Log Usage ${e.detail.device.name}: ${e.detail.percent}%`)
-        consolePrintln(`Log Usage ${e.detail.device.name}: ${e.detail.percent}%`)
+        // console.log(`Log Usage ${e.detail.device.getLabel()}: ${e.detail.percent}%`)
+        consolePrintln(`Log Usage ${e.detail.device.getLabel()}: ${e.detail.percent}%`)
     })
 
     uBM.addEventListener("row updated", (e)=> {
-        // console.log(`Row Update ${e.detail.device.name} ${e.detail.row}:\n${e.detail.headers}\n${e.detail.data}`)
-        // consolePrintln(`Row Updated ${e.detail.device.name}  ${e.detail.row}:`)
+        // console.log(`Row Update ${e.detail.device.getLabel()} ${e.detail.row}:\n${e.detail.headers}\n${e.detail.data}`)
+        // consolePrintln(`Row Updated ${e.detail.device.getLabel()}  ${e.detail.row}:`)
         // consolePrintln(`Headers ${e.detail.headers.join("\t\t")}`)
         // consolePrintln(`Data ${e.detail.data.join("\t\t")}`)
     })
@@ -78,8 +79,12 @@
             device.disconnect()
         }
     })
+    uBM.addEventListener("unauthorized", (e)=> {
+        // console.log(`**Unauthorized!!** ${e.detail.device.getLabel()}%`)
+        consolePrintln(`<b>Unauthorized!</b> ${e.detail.device.getLabel()}`)
+    })
 
-    document.getElementById("download").addEventListener("click", () => d && d.download("data.csv"))
+    document.getElementById("download").addEventListener("click", () => d && d.download("data"))
 
 </script>
 

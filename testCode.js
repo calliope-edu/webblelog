@@ -23,3 +23,8 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+    // async readLength() {
+    //     let length = await this.dataLen.readValue()
+    //     let intLength = length.getUint32(0,true)
+    //     return intLength        
+    // }

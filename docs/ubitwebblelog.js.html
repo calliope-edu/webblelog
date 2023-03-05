@@ -1,4 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: ubitwebblelog.js</title>
 
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: ubitwebblelog.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>
 /**
  * JavaScript functions for interacting with micro:bit microcontrollers over WebBluetooth
  * (Only works in Chrome browsers;  Pages must be either HTTPS or local)
@@ -179,11 +207,11 @@ class uBit extends EventTarget {
     }
 
     /**
-     * Request an erase (if connected & authorized)
+     * Request an erase (if connected &amp; authorized)
      */
     sendErase() {
         //console.log(`sendErase`)
-        if(this.device && this.device.gatt && this.device.gatt.connected) {
+        if(this.device &amp;&amp; this.device.gatt &amp;&amp; this.device.gatt.connected) {
             let dv = new DataView(new ArrayBuffer(5))
             let i = 0
             for(let c of "ERASE") {
@@ -202,7 +230,7 @@ class uBit extends EventTarget {
      */
     sendAuthorization(password) {
         //console.log(`sendAuthorization: ${password}`)
-        if(this.device && this.device.gatt && this.device.gatt.connected) {
+        if(this.device &amp;&amp; this.device.gatt &amp;&amp; this.device.gatt.connected) {
             let dv = new DataView(new ArrayBuffer(password.length))
             let i = 0
             for(let c of password) {
@@ -217,7 +245,7 @@ class uBit extends EventTarget {
      * Request a disconnect
      */
     disconnect() {
-        if(this.device && this.device.gatt && this.device.gatt.connected) {
+        if(this.device &amp;&amp; this.device.gatt &amp;&amp; this.device.gatt.connected) {
             this.device.gatt.disconnect()
         }
     }
@@ -267,7 +295,7 @@ class uBit extends EventTarget {
      */
     async requestSegment(start, length) {
         // console.log(`requestSegment: Requesting @ ${start} ${length} *16 bytes`)
-        if(this.device && this.device.gatt && this.device.gatt.connected) {
+        if(this.device &amp;&amp; this.device.gatt &amp;&amp; this.device.gatt.connected) {
             let dv = new DataView(new ArrayBuffer(8))
             dv.setUint32(0, start*16, true)
             dv.setUint32(4, length*16, true)
@@ -343,7 +371,7 @@ class uBit extends EventTarget {
         this.id = this.id || device.id   
         this.name = this.name || device.name 
 
-        // Bluetooth & connection configuration
+        // Bluetooth &amp; connection configuration
         this.device = device 
         this.chars = chars 
         this.service = service
@@ -409,7 +437,7 @@ class uBit extends EventTarget {
         if(this.dataLength != length) {
 
             // Probably erased.  Retrieve it all
-            if(length<this.dataLength) {
+            if(length&lt;this.dataLength) {
                 console.log("Log smaller than expected.  Retrieving all data")
                 this.rawData = []
                 this.dataLength = 0
@@ -445,11 +473,11 @@ class uBit extends EventTarget {
     processTime() {
         // Add in clock times (if possible)
         // console.log("Adding times")
-        if(this.firstConnectionUpdate==false && this.indexOfTime!=-1) {
+        if(this.firstConnectionUpdate==false &amp;&amp; this.indexOfTime!=-1) {
             let start = this.rows.length-1
             // console.log(`Start: ${start}`)
             // Valid index, wtc time is null
-            while(start>=0 && this.rows[start][2]==null) {
+            while(start>=0 &amp;&amp; this.rows[start][2]==null) {
                 // Until a "Reboot" or another time is set
                 let sampleTime = this.mbRebootTime + Math.round(this.rows[start][3]*1000)  
                 let timeString = new Date(sampleTime).toISOString()             
@@ -523,7 +551,7 @@ class uBit extends EventTarget {
             } else {
                 let parts = line.split(",")
                 //console.log(`Data: ${parts} ${parts.length} ${this.headers.length}`)
-                if(parts.length < this.headers.length) {
+                if(parts.length &lt; this.headers.length) {
                     console.log(`Invalid line: ${line} ${this.bytesProcessed}`)
                 } else {
                     let time = null
@@ -543,7 +571,7 @@ class uBit extends EventTarget {
         // Advance by total contents of lines and newlines
         this.bytesProcessed += lines.length + lines.reduce((a, b) => a + b.length, 0)
         // Notify any listeners
-        for(let i=startRow; i<this.rows.length; i++) {
+        for(let i=startRow; i&lt;this.rows.length; i++) {
             this.updatedRow(i)
         }
     }
@@ -558,7 +586,7 @@ class uBit extends EventTarget {
         if(value!=0) {
             this.onAuthorized()
         } else {
-            if(this.password!=null && this.passwordAttempts==0) {
+            if(this.password!=null &amp;&amp; this.passwordAttempts==0) {
                 // If we're on the first connect and we have a stored password, try it
                 this.sendAuthorization(this.password)
                 this.passwordAttempts++
@@ -606,7 +634,7 @@ class uBit extends EventTarget {
     processChunk(retrieve) {
         // If final packet and we care about progress, send completion notification
         // console.log(`processChunk: ${retrieve.progress} ${retrieve.final} ${retrieve.success} ${retrieve.segments.length}`)
-        if(retrieve.progress>=0 && retrieve.final) {
+        if(retrieve.progress>=0 &amp;&amp; retrieve.final) {
             this.notifyDataProgress(100)
         }
 
@@ -617,7 +645,7 @@ class uBit extends EventTarget {
         this.startNextRetrieve()
 
         // Copy data from this to raw data  
-        for(let i=0;i<retrieve.segments.length;i++) {
+        for(let i=0;i&lt;retrieve.segments.length;i++) {
             if(retrieve.segments[i]==null) {
                 console.log(`ERROR: Null segment: ${i}`)
             }
@@ -648,14 +676,14 @@ class uBit extends EventTarget {
             this.processChunk(retrieve)
         } else {
             // Advance to next missing packet
-            while(retrieve.processed<retrieve.segments.length && retrieve.segments[retrieve.processed]!=null) {
+            while(retrieve.processed&lt;retrieve.segments.length &amp;&amp; retrieve.segments[retrieve.processed]!=null) {
                 retrieve.processed = retrieve.processed+1
             }
             // If there's a non-set segment, request it
-            if(retrieve.processed<retrieve.segments.length) {
+            if(retrieve.processed&lt;retrieve.segments.length) {
                 // Identify the run length of the missing piece(s)
                 let length = 1;
-                while(retrieve.processed+length<retrieve.segments.length &&
+                while(retrieve.processed+length&lt;retrieve.segments.length &amp;&amp;
                     retrieve.segments[retrieve.processed+length]==null ) {
                     length++
                 }
@@ -687,7 +715,7 @@ class uBit extends EventTarget {
             let index = dv.getUint32(0,true)
             
             let text =''
-            for(let i=4;i<dv.byteLength;i++) {
+            for(let i=4;i&lt;dv.byteLength;i++) {
                 let val = dv.getUint8(i)
                 if(val!=0) {
                     text += String.fromCharCode(val)
@@ -699,7 +727,7 @@ class uBit extends EventTarget {
 
             let retrieve = this.retrieveQueue[0]
 
-// if(Math.random()<.01) {
+// if(Math.random()&lt;.01) {
 //     console.log("Dropped Packet")
 // } else {
 
@@ -711,13 +739,13 @@ class uBit extends EventTarget {
 
             if(retrieve.segments[segmentIndex]!=null) {
                 console.log(`ERROR:  Segment already set ${segmentIndex}: "${retrieve.segments[segmentIndex]}" "${text}" `)
-                if(retrieve.segments[segmentIndex].length!=text.length && retrieve.segments[segmentIndex]!=text) {
+                if(retrieve.segments[segmentIndex].length!=text.length &amp;&amp; retrieve.segments[segmentIndex]!=text) {
                     console.log("Segment is ok (duplicate / overlap")
                 } else {
                     console.log("Duplicate segment")
                 }
             }
-            if(segmentIndex>=0 && segmentIndex<retrieve.segments.length) {
+            if(segmentIndex>=0 &amp;&amp; segmentIndex&lt;retrieve.segments.length) {
                 retrieve.segments[segmentIndex] = text
             } else {
                 console.log(`ERROR:  Segment out of range ${segmentIndex} (max ${retrieve.segments.length}`)
@@ -728,7 +756,7 @@ class uBit extends EventTarget {
         } else if(event.target.value.byteLength==0) {
             // Done: Do the check / processing (timer already cancelled)
             // console.log("Terminal packet.")
-// if(Math.random()<.10) {
+// if(Math.random()&lt;.10) {
             this.checkChunk() 
 // } else {
 //     // Simulate timeout
@@ -768,7 +796,7 @@ class uBit extends EventTarget {
      */
     discardRetrieveQueue() {
         // If there's a transfer in-progress, notify it is completed
-        if(this.retrieveQueue.length>0 && this.retrieveQueue[0].progress>=0) {
+        if(this.retrieveQueue.length>0 &amp;&amp; this.retrieveQueue[0].progress>=0) {
             this.notifyDataProgress(100)
         }
         while(this.retrieveQueue.pop()) {}
@@ -854,3 +882,26 @@ class uBitManager extends EventTarget  {
 
 
 
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="retrieveTask.html">retrieveTask</a></li><li><a href="uBit.html">uBit</a></li><li><a href="uBitManager.html">uBitManager</a></li></ul><h3>Global</h3><ul><li><a href="global.html#download">download</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.2</a> on Sat Mar 04 2023 22:17:37 GMT-0600 (Central Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

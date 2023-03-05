@@ -63,10 +63,19 @@ datalogger.setColumnTitles(
 # Events 
 
 * "connected":  data.detail is the device that connected
-* "disconnected": data.detail is the device that disconnected
+  * {detail: {device: this}}
+* "disconnected": data.detail.device is the device that disconnected
+  * {device:this}
 * "unauthorized" : data.detail is device that needs valid password
-* "progress":  data.detail.device is device.  data.detail.progress is progress (0-100)
+  * {detail: {device: this}}
+* "progress": data.detail.device is device.  data.detail.progress is progress (0-100)
+  *  {device:this, progress:progress} 
 * "graph cleared":  data.detail is the device that connected
+  * {detail: {device: this}}
+* "row updated":
+  * {detail: {device: this, row: rowIndex, data: this.rows[rowIndex], headers: this.fullHeaders}}
+* "log usage":
+  * {detail: {device: this, percent: value}}
 
 
 ## uBitManager
@@ -103,3 +112,8 @@ See [`index.html`](./index.html) for a complete example application.
 6. Retrieval of all data
 7. Docs.
 8. Disconnect should terminate any pending "progress" stuff???
+
+
+## JSDoc 
+
+jsdoc ubitwebblelog.js -r jsdoc.md -d docs
