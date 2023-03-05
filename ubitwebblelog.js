@@ -36,14 +36,14 @@ const progressPacketThreshold = 10  // More than 10 packets and report progress 
 const SERVICE_UUID     = "accb4ce4-8a4b-11ed-a1eb-0242ac120002"  // BLE Service
 const serviceCharacteristics = new Map( 
     [
-     ["accb4f64-8a4b-11ed-a1eb-0242ac120002", "security"],    // Security	Read, Notify
-     ["accb50a4-8a4b-11ed-a1eb-0242ac120002", "passphrase"],  // Passphrase	Write
-     ["accb520c-8a4b-11ed-a1eb-0242ac120002", "dataLen"],     // Data Length	Read, Notify
-     ["accb53ba-8a4b-11ed-a1eb-0242ac120002", "data"],        // Data	Notify
-     ["accb552c-8a4b-11ed-a1eb-0242ac120002", "dataReq"],     // Data Request	Write
-     ["accb5946-8a4b-11ed-a1eb-0242ac120002", "erase"],       // Erase	Write
-     ["accb5be4-8a4b-11ed-a1eb-0242ac120002", "usage"],       // Usage	Read, Notify
-     ["accb5dd8-8a4b-11ed-a1eb-0242ac120002", "time"]         // Time	Read
+     ["accb4f64-8a4b-11ed-a1eb-0242ac120002", "securityChar"],    // Security	Read, Notify
+     ["accb50a4-8a4b-11ed-a1eb-0242ac120002", "passphraseChar"],  // Passphrase	Write
+     ["accb520c-8a4b-11ed-a1eb-0242ac120002", "dataLenChar"],     // Data Length	Read, Notify
+     ["accb53ba-8a4b-11ed-a1eb-0242ac120002", "dataChar"],        // Data	Notify
+     ["accb552c-8a4b-11ed-a1eb-0242ac120002", "dataReqChar"],     // Data Request	Write
+     ["accb5946-8a4b-11ed-a1eb-0242ac120002", "eraseChar"],       // Erase	Write
+     ["accb5be4-8a4b-11ed-a1eb-0242ac120002", "usageChar"],       // Usage	Read, Notify
+     ["accb5dd8-8a4b-11ed-a1eb-0242ac120002", "timeChar"]         // Time	Read
     ]);
 
 
@@ -121,21 +121,6 @@ class uBit extends EventTarget {
         // Bind internal callbacks
         this.onConnectionSyncCompleted = this.onConnectionSyncCompleted.bind(this)
 
-        // this.retrieveChunk = this.retrieveChunk.bind(this)
-        // this.disconnect = this.disconnect.bind(this)
-        // this.readLength = this.readLength.bind(this)
-        // this.notifyDataProgress = this.notifyDataProgress.bind(this)
-        // this.checkChunk = this.checkChunk.bind(this)
-        // this.processChunk = this.processChunk.bind(this)
-        // this.requestSegment = this.requestSegment.bind(this)
-        // this.clearDataTimeout = this.clearDataTimeout.bind(this)
-        // this.setDataTimeout = this.setDataTimeout.bind(this)
-        // this.onAuthorized = this.onAuthorized.bind(this)        
-        // this.download = this.download.bind(this)
-        // this.parseData = this.parseData.bind(this)
-        // this.startNextRetrieve = this.startNextRetrieve.bind(this)
-        // this.disconnected = this.disconnected.bind(this)
-
         // Connection state management setup 
         this.disconnected()
     }
@@ -184,7 +169,7 @@ class uBit extends EventTarget {
             let dv = new DataView(new ArrayBuffer(8))
             dv.setUint32(0, start*16, true)
             dv.setUint32(4, length*16, true)
-            await this.dataReq.writeValue(dv)
+            await this.dataReqChar.writeValue(dv)
             this.clearDataTimeout()
             this.setDataTimeout()    
         }
@@ -270,30 +255,30 @@ class uBit extends EventTarget {
         this.device.addEventListener('gattserverdisconnected', () => {
             this.onDisconnect()}, {once:true});
 
-        this.security.addEventListener('characteristicvaluechanged', this.onSecurity)
-        await this.security.startNotifications()
+        this.securityChar.addEventListener('characteristicvaluechanged', this.onSecurity)
+        await this.securityChar.startNotifications()
     }
    
 
     async onAuthorized() {
         // Subscribe to characteristics / notifications
         // Initial reads (need to be before notifies
-        let time = await this.time.readValue() 
+        let time = await this.timeChar.readValue() 
         let msTime = Math.round(Number(time.getBigUint64(0,true))/1000)  // Conver us Time to ms
 
         // Compute the date/time that the micro:bit started in seconds since epoch start (as N.NN s)
         this.mbRebootTime = Date.now() - msTime  
 
-        this.data.addEventListener('characteristicvaluechanged', this.onData)
-        await this.data.startNotifications()
+        this.dataChar.addEventListener('characteristicvaluechanged', this.onData)
+        await this.dataChar.startNotifications()
 
-        this.usage.addEventListener('characteristicvaluechanged', this.onUsage)
-        await this.usage.startNotifications()
+        this.usageChar.addEventListener('characteristicvaluechanged', this.onUsage)
+        await this.usageChar.startNotifications()
 
         // Enabling notifications will get current length;
         // Getting current length will retrieve all "new" data since last retrieve
-        this.dataLen.addEventListener('characteristicvaluechanged', this.onNewLength)
-        await this.dataLen.startNotifications()        
+        this.dataLenChar.addEventListener('characteristicvaluechanged', this.onNewLength)
+        await this.dataLenChar.startNotifications()        
     }
        
 
@@ -344,7 +329,7 @@ class uBit extends EventTarget {
             for(let c of "ERASE") {
                 dv.setUint8(i++, c.charCodeAt(0))
             }
-            this.erase.writeValue(dv)
+            this.eraseChar.writeValue(dv)
         }
     }
 
@@ -356,7 +341,7 @@ class uBit extends EventTarget {
             for(let c of password) {
                 dv.setUint8(i++, c.charCodeAt(0))
             }
-            this.passphrase.writeValue(dv)
+            this.passphraseChar.writeValue(dv)
             this.password = password
         }
     }
@@ -654,14 +639,15 @@ class uBit extends EventTarget {
         this.device = null
         this.service = null
         this.chars = null
-        this.security = null
-        this.passphrase = null 
-        this.dataLen = null 
-        this.data = null 
-        this.dataReq = null
-        this.erase = null 
-        this.usage = null
-        this.time = null
+        // Individual characteristics
+        this.securityChar = null
+        this.passphraseChar = null 
+        this.dataLenChar = null 
+        this.dataChar = null 
+        this.dataReqChar = null
+        this.eraseChar = null 
+        this.usageChar = null
+        this.timeChar = null
         // Update data to reflect what we actually have
         this.dataLength = Math.max(0, (this.rawData.length-1)*16)
 
