@@ -18,7 +18,10 @@
                 <button id="clear" class="button">Clear Console</button>
         </div>
         <div class="row header">
-            <button id="download" class="button">Download CSV (last connected & while connected)</button>
+            <button id="download" class="button">Download all CSVs</button>
+        </div>
+        <div class="row header">
+            <button id="raw-download" class="button">Download all RAW CSVs</button>
         </div>
 
         <div id="console" class="row content" style="overflow:auto;border:4px solid black;padding:2%">
@@ -39,6 +42,7 @@
         con.scrollTop = con.scrollHeight
     }
 
+    /************** uBitManager Event Handlers  **************/
     let uBM = new uBitManager()
     let d = null
     // Make the "go" button open the request devices box
@@ -60,17 +64,52 @@
         consolePrintln(`Progress ${e.detail.device.getLabel()}: ${e.detail.progress}%`)
     })
 
-    uBM.addEventListener("log usage", (e)=> {
+    uBM.addEventListener("log-usage", (e)=> {
         // console.log(`Log Usage ${e.detail.device.getLabel()}: ${e.detail.percent}%`)
         consolePrintln(`Log Usage ${e.detail.device.getLabel()}: ${e.detail.percent}%`)
     })
 
-    uBM.addEventListener("row updated", (e)=> {
+    uBM.addEventListener("row-updated", (e)=> {
         // console.log(`Row Update ${e.detail.device.getLabel()} ${e.detail.row}:\n${e.detail.headers}\n${e.detail.data}`)
         // consolePrintln(`Row Updated ${e.detail.device.getLabel()}  ${e.detail.row}:`)
         // consolePrintln(`Headers ${e.detail.headers.join("\t\t")}`)
         // consolePrintln(`Data ${e.detail.data.join("\t\t")}`)
     })
+
+    uBM.addEventListener("unauthorized", (e)=> {
+        // console.log(`**Unauthorized!!** ${e.detail.device.getLabel()}%`)
+        consolePrintln(`<b>Unauthorized!</b> ${e.detail.device.getLabel()}`)
+    })
+
+    uBM.addEventListener("data-ready", (e)=> {
+        // console.log(`New Data Ready ${e.detail.device.getLabel()} Data length = ${e.detail.device.getDataLength()}}`)
+        consolePrintln(`New Data Ready ${e.detail.device.getLabel()} Data length = ${e.detail.device.getDataLength()}`)
+    })
+
+    /************** Button Handlers and Page logic  **************/
+    /**
+     * Download the given string data as a file
+     * @param {*} data String (file contents) to download
+     * @param {*} filename The file name (include extension)
+     * @param {*} type the extension (".csv")
+     */
+    function download(data, filename, type) {
+        var file = new Blob([data], {type: type});
+        if (window.navigator.msSaveOrOpenBlob) // IE10+
+            window.navigator.msSaveOrOpenBlob(file, filename);
+        else { // Others
+            var a = document.createElement("a"),
+                    url = URL.createObjectURL(file);
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(function() {
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);  
+            }, 0); 
+        }
+    }
 
     document.getElementById("connect").addEventListener("click", () => uBM.connect())
 
@@ -80,15 +119,18 @@
         }
     })
 
-    uBM.addEventListener("unauthorized", (e)=> {
-        // console.log(`**Unauthorized!!** ${e.detail.device.getLabel()}%`)
-        consolePrintln(`<b>Unauthorized!</b> ${e.detail.device.getLabel()}`)
+    document.getElementById("download").addEventListener("click", () => {
+        for(let [id, device] of uBM.getDevices()) {
+            download(device.getCSV(), device.getLabel()+".csv", "text/csv")
+        }
+    })
+    document.getElementById("raw-download").addEventListener("click", () => {
+        for(let [id, device] of uBM.getDevices()) {
+            download(device.getRawCSV(), device.getLabel()+"_raw.csv", "text/csv")
+        }
     })
 
-    document.getElementById("download").addEventListener("click", () => d && d.download("data"))
-
     document.getElementById("clear").addEventListener("click", () => { document.getElementById("console").innerHTML = "" })
-
 </script>
 
 </html>

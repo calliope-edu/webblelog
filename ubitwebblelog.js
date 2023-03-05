@@ -5,31 +5,6 @@
  */
 
 
-/**
- * Download the given string data as a file
- * @param {*} data String (file contents) to download
- * @param {*} filename The file name (include extension)
- * @param {*} type the extension (".csv")
- * @private
- */
-function download(data, filename, type) {
-    var file = new Blob([data], {type: type});
-    if (window.navigator.msSaveOrOpenBlob) // IE10+
-        window.navigator.msSaveOrOpenBlob(file, filename);
-    else { // Others
-        var a = document.createElement("a"),
-                url = URL.createObjectURL(file);
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(function() {
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);  
-        }, 0); 
-    }
-}
-
 const onDataTIMEOUT = 1000          // Timeout after 1 second of no data (and expecting more)
 const dataBurstSIZE = 100           // Number of packets to request at in a burst 
 const progressPacketThreshold = 10  // More than 10 packets and report progress of transfer
@@ -175,14 +150,27 @@ class uBit extends EventTarget {
     }
 
     /**
-     * Download the data as a CSV file
-     * @param {string} filename The name of the file to download (no extension)
+     * Get the data as a CSV representation 
+     * This is the full, augmnted data.  The first column will be the miro:bit name (not label), then an indiator 
+     * of the reboot, then the wall-clock time (UTC stamp in ISO format if it can reliably be identified), 
+     * then the microbit's clock time, then the data.
+     * @returns {string} The CSV of the augmented data
      */
-    download(filename) {
+    getCSV() {
         let headers = this.fullHeaders.join(",") + "\n"
-        let data = d.rows.map( r => r.join(",")).join("\n")
-        download(headers+data, filename+".csv", "csv")
+        let data = this.rows.map( r => r.join(",")).join("\n")
+        return headers+data
     }
+
+    /**
+     * Get the raw (micro:bit) data as a CSV representation. This should match the CSV retrieved from 
+     * accessing the Micro:bit as a USB drive
+     * @returns {string} The CSV of the raw data
+     */
+    getRawCSV() {
+        return this.rawData.join('')
+    }
+
 
     /**
      * Request an erase (if connected & authorized)
@@ -284,12 +272,33 @@ class uBit extends EventTarget {
     }
 
     /**
-     * 
+     * Notify of progress in retrieving large block of data
      * @param {int} progress Progress of the task (0-100) 
      * @private
      */
     notifyDataProgress(progress) {
-        this.manager.dispatchEvent(new CustomEvent("progress", {detail: {device:this, progress:progress}}))
+            /** 
+            * @event progress
+            * @type {object}
+            * @property {uBit} detail.device The device that has an update on progress
+            * @property {int} detail.progress Progress on total data transfer [0-100]
+            */ 
+           this.manager.dispatchEvent(new CustomEvent("progress", {detail: {device:this, progress:progress}}))
+    }
+
+
+
+    /**
+     * Notify that new data is available
+     * @private
+     */
+    notifyDataReady() {
+    /** 
+    * @event data-ready
+    * @type {object}
+    * @property {uBit} detail.device The device that has new data
+    */ 
+    this.manager.dispatchEvent(new CustomEvent("data-ready", {detail: {device:this}}))
     }
 
     /**
@@ -367,6 +376,11 @@ class uBit extends EventTarget {
         });
 
         // Connect / disconnect handlers
+        /** 
+        * @event connected
+        * @type {object}
+        * @property {uBit} detail.device The device that has successfully connected
+        */ 
         this.manager.dispatchEvent(new CustomEvent("connected", {detail: {device: this}}))
 
         this.device.addEventListener('gattserverdisconnected', () => {
@@ -428,7 +442,12 @@ class uBit extends EventTarget {
                 this.fullHeaders = []
                 this.rows = [] 
 
-                this.manager.dispatchEvent(new CustomEvent("graph cleared", {detail: {device: this}}))
+                /** 
+                * @event graph-cleared
+                * @type {object}
+                * @property {uBit} detail.device The device that clear all data (completed an erase at some time)
+                */ 
+                this.manager.dispatchEvent(new CustomEvent("graph-cleared", {detail: {device: this}}))
             }
 
             // Get the index of the last known value (since last update)
@@ -477,7 +496,15 @@ class uBit extends EventTarget {
      * @private 
      */
     updatedRow(rowIndex) {
-        this.manager.dispatchEvent(new CustomEvent("row updated", {detail: {
+        /** 
+        * @event row-updated
+        * @type {object}
+        * @property {uBit} detail.device The device that has an update on a row of data
+        * @property {int} detail.row the index of the row that has been updated (may be a new row)
+        * @property {string[]} detail.data the current data for the row
+        * @property {headers[]} detail.headers the headers for the row (same order as data)
+        */ 
+        this.manager.dispatchEvent(new CustomEvent("row-updated", {detail: {
             device: this, 
             row: rowIndex,
             data: this.rows[rowIndex],
@@ -538,7 +565,7 @@ class uBit extends EventTarget {
                     } 
                     parts = parts.slice(0, this.indexOfTime).concat(parts.slice(this.indexOfTime+1))
                     //  name, reboot, local time, time, data...
-                    let newRow = [this.label || this.name, this.nextDataAfterReboot ? "true" : null, null, time].concat(parts)
+                    let newRow = [this.getLabel(), this.nextDataAfterReboot ? "true" : null, null, time].concat(parts)
                     // console.log(`New Row: ${newRow}`)
                     this.rows.push(newRow)
                     this.nextDataAfterReboot = false
@@ -546,6 +573,10 @@ class uBit extends EventTarget {
             }
         }
         this.processTime()
+        // If we've already done the first connection...
+        if(this.firstConnectionUpdate==false) {
+            this.notifyDataReady()
+        }
         // Advance by total contents of lines and newlines
         this.bytesProcessed += lines.length + lines.reduce((a, b) => a + b.length, 0)
         // Notify any listeners
@@ -570,6 +601,11 @@ class uBit extends EventTarget {
                 this.passwordAttempts++
             } else {
                 // Need a password or password didn't work
+                /** 
+                * @event unauthorized
+                * @type {object}
+                * @property {uBit} detail.device The device that is not authorized (must provide valid password to use device.  See {@link uBit#sendAuthorization})
+                */ 
                 this.manager.dispatchEvent(new CustomEvent("unauthorized", {detail: {device: this}}))
             }
         }
@@ -601,6 +637,7 @@ class uBit extends EventTarget {
             //console.log("onConnectionSyncCompleted")
             this.firstConnectionUpdate = false
             this.processTime()
+            this.notifyDataReady()
         }
     }
 
@@ -755,7 +792,13 @@ class uBit extends EventTarget {
      */
     onUsage(event) {
         let value = event.target.value.getUint16(0, true)/10.0
-        this.manager.dispatchEvent(new CustomEvent("log usage", {detail: {device: this, percent: value}} ))
+          /** 
+            * @event log-usage
+            * @type {object}
+            * @property {uBit} detail.device The device that has an update on progress
+            * @property {int} detail.percent Percent of space currently in use [0.0-100.0]
+            */ 
+        this.manager.dispatchEvent(new CustomEvent("log-usage", {detail: {device: this, percent: value}} ))
     }
 
     /**
@@ -765,6 +808,11 @@ class uBit extends EventTarget {
     onDisconnect() {
         this.device.gatt.disconnect()
         this.disconnected()
+        /** 
+        * @event disconnected
+        * @type {object}
+        * @property {uBit} detail.device The device that has disconnected
+        */ 
         this.manager.dispatchEvent(new CustomEvent("disconnected", {detail: {device:this}} ))
     }
 
@@ -809,6 +857,14 @@ class uBit extends EventTarget {
 
 /**
  * Manager for uBit devices
+ * @fires connected
+ * @fires disconnected
+ * @fires data-ready
+ * @fires progress
+ * @fires log-usage
+ * @fires unauthorized
+ * @fires graph-cleared
+ * @fires row-updated
  */
 class uBitManager extends EventTarget  {
 

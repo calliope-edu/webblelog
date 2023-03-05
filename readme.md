@@ -66,16 +66,19 @@ datalogger.setColumnTitles(
   * {detail: {device: this}}
 * "disconnected": data.detail.device is the device that disconnected
   * {device:this}
-* "unauthorized" : data.detail is device that needs valid password
-  * {detail: {device: this}}
-* "progress": data.detail.device is device.  data.detail.progress is progress (0-100)
-  *  {device:this, progress:progress} 
-* "graph cleared":  data.detail is the device that connected
-  * {detail: {device: this}}
-* "row updated":
-  * {detail: {device: this, row: rowIndex, data: this.rows[rowIndex], headers: this.fullHeaders}}
 * "log usage":
   * {detail: {device: this, percent: value}}
+* "progress": data.detail.device is device.  data.detail.progress is progress (0-100)
+  *  {device:this, progress:progress} 
+* "data ready" New data is ready (the length of the log has changed.  Final values, including time stamps are included)
+  * {detail: {device: this}}
+* "unauthorized" : data.detail is device that needs valid password
+  * {detail: {device: this}}
+* "graph-cleared":  data.detail is the device that connected
+  * {detail: {device: this}}
+* "row-updated":
+  * {detail: {device: this, row: rowIndex, data: this.rows[rowIndex], headers: this.fullHeaders}}
+
 
 
 ## uBitManager
