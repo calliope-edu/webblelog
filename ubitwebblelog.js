@@ -113,14 +113,13 @@ class uBit extends EventTarget {
         this.onDataTimeoutHandler = -1  // Also tracks if a read is in progress
         this.retrieveQueue = []
 
-
         // Parsing data
-        this.bytesProcessed = 0
         this.nextDataAfterReboot = false
+        this.bytesProcessed = 0
         this.headers = []
         this.indexOfTime = 0
+        this.fullHeaders = []
         this.rows = [] 
-        this.timestamps = []
 
         // Connection Management
         this.firstConnectionUpdate = false
@@ -159,9 +158,9 @@ class uBit extends EventTarget {
     }
 
     download(filename) {
-        let completeData = this.rawData.join('')
-
-        download(completeData, filename, "csv")
+        let headers = this.fullHeaders.join(",") + "\n"
+        let data = d.rows.map( r => r.join(",")).join("\n")
+        download(headers+data, filename, "csv")
     }
 
     clearDataTimeout() {
@@ -221,7 +220,7 @@ class uBit extends EventTarget {
      * @returns 
      */
     retrieveChunk(start, length, success = null) {
-        console.log(`retrieveChunk: Retrieving @${start} ${length} *16 bytes`)
+        //console.log(`retrieveChunk: Retrieving @${start} ${length} *16 bytes`)
         if(start*16>this.dataLength) {
             console.log(`retrieveChunk: Start index ${start} is beyond end of data`)
             return
@@ -297,10 +296,10 @@ class uBit extends EventTarget {
         // Subscribe to characteristics / notifications
         // Initial reads (need to be before notifies
         let time = await this.time.readValue() 
-        let intTime = time.getBigUint64(0,true)
+        let msTime = Math.round(Number(time.getBigUint64(0,true))/1000)  // Conver us Time to ms
 
-        this.mbConnectTime = intTime
-        this.wallClockConnectTime = Date.now()
+        // Compute the date/time that the micro:bit started in seconds since epoch start (as N.NN s)
+        this.mbRebootTime = Date.now() - msTime  
 
         this.data.addEventListener('characteristicvaluechanged', this.onData)
         await this.data.startNotifications()
@@ -330,6 +329,14 @@ class uBit extends EventTarget {
                 this.dataLength = 0
                 this.bytesProcessed = 0 // Reset to beginning of processing
                 this.discardRetrieveQueue() // Clear any pending requests
+
+                this.bytesProcessed = 0
+                this.headers = []
+                this.indexOfTime = 0
+                this.fullHeaders = []
+                this.rows = [] 
+        
+
                 this.manager.dispatchEvent(new CustomEvent("graph cleared", {detail: this}))
             }
 
@@ -347,7 +354,7 @@ class uBit extends EventTarget {
     }
 
     sendErase() {
-        console.log(`sendErase`)
+        //console.log(`sendErase`)
         if(this.device && this.device.gatt && this.device.gatt.connected) {
             let dv = new DataView(new ArrayBuffer(5))
             let i = 0
@@ -359,7 +366,7 @@ class uBit extends EventTarget {
     }
 
     sendAuthorization(password) {
-        console.log(`sendAuthorization: ${password}`)
+        //console.log(`sendAuthorization: ${password}`)
         if(this.device && this.device.gatt && this.device.gatt.connected) {
             let dv = new DataView(new ArrayBuffer(password.length))
             let i = 0
@@ -372,53 +379,102 @@ class uBit extends EventTarget {
     }
 
 
-
-    // TODO
-    parseData() {
-        console.log("parseData")
-        return 
-        let index = Math.floor(this.bytesProcessed/16)
-        let offset = this.bytesProcessed%16
-        let data = ""
-        let newLineLocation = -1
-
-        while(index<this.rawData.length && newLineLocation<0) {
-            let newPacket = this.rawData[index]
-            newLineLocation = newPacket.indexOf("\n")
-            data = data+newPacket.substring(offset, newLineLocation>=0?newLineLocation:16)
-            offset = 0 
-            index++
-        }
-        if(newLineLocation>=0) {
-            console.log(`New data: ${data}`)
-            this.bytesProcessed += data.length
-            if(data=="Reboot") {
-                this.nextDataAfterReboot = true
-            } else {
-                // Parse out the data / headers
-                if(data.includes("Time")) {
-                    this.headers = data.split(",")
-                    for(let i=0;i<this.headers.length;i++) {
-                        if(this.headers[i].includes("Time")) {
-                            this.indexOfTime = i
-                            break;
-                        }
-                    }
-                    console.log(`Headers: ${this.headers}`)
-                } else {
-                    // DATA!
-                    let values = data.split(",")
-                    console.log(`Values: ${values}`)
-                    let uBTime = values[this.indexOfTime]
-                    let before = values.slice(0, this.indexOfTime)
-                    let after = values.slice(this.indexOfTime+1)
-
-                    this.rows += [this.nextDataAfterReboot,null].concat([uBTime]).concat(before).concat(after)
+    processTime() {
+        // Add in clock times (if possible)
+        // console.log("Adding times")
+        if(this.firstConnectionUpdate==false && this.indexOfTime!=-1) {
+            let start = this.rows.length-1
+            // console.log(`Start: ${start}`)
+            // Valid index, wtc time is null
+            while(start>=0 && this.rows[start][2]==null) {
+                // Until a "Reboot" or another time is set
+                let sampleTime = this.mbRebootTime + Math.round(this.rows[start][3]*1000)  
+                let timeString = new Date(sampleTime).toISOString()             
+                // console.log(`Setting time for row ${start} to ${timeString}`)
+                this.rows[start][2] = timeString
+                this.updatedRow(start)
+                // Don't update rows before "Reboot"
+                if(this.rows[start][1]!=null) {
+                    break;
                 }
-                // Do notifications
+                //console.log(`Row: ${this.rows[start]}`)   
+                start--
             }
         }
+    }
 
+    updatedRow(rowIndex) {
+        this.manager.dispatchEvent(new CustomEvent("row updated", {detail: {
+            device: this, 
+            row: rowIndex,
+            data: this.rows[rowIndex],
+            headers: this.fullHeaders
+        }}))
+    }
+
+    parseData() {
+        //console.log("parseData")
+
+        // Bytes processed always ends on a newline
+
+        let index = Math.floor(this.bytesProcessed/16) 
+        let offset = this.bytesProcessed%16
+
+        let partialItem = this.rawData[index].substring(offset)
+        let mergedData = partialItem + this.rawData.slice(index+1).join("")
+        // console.log(`mergedData: ${mergedData}`)
+        let lines = mergedData.split("\n")
+        let startRow = this.rows.length
+        lines.pop() // Discard the last / partial line
+        for(let line of lines) {
+            //console.log(`parsing line: ${line}`)
+            if(line == "Reboot") {
+                //console.dir(`Reboot`)
+                this.nextDataAfterReboot = true
+            } else if(line.includes("Time")) {
+                //console.log(`Header: ${line}`)
+                let parts = line.split(",")
+                if(parts.length != this.headers.length) {
+                    // New Header!
+                    this.headers = parts
+                    this.indexOfTime = parts.findIndex((element) => element.includes("Time"))
+                    this.fullHeaders = ["Microbit Label", "Reboot Before Data", "Time (local)"]
+                    if(this.indexOfTime != -1) {
+                        this.fullHeaders = this.fullHeaders.concat(parts)
+                    } else {
+                        // Time then data
+                        this.fullHeaders = this.fullHeaders.concat(parts[this.indexOfTime])
+                        this.fullHeaders = this.fullHeaders.concat(parts.slice(0, this.indexOfTime))
+                        this.fullHeaders = this.fullHeaders.concat(parts.slice(this.indexOfTime+1))
+                    }
+                    //console.log(`Full Headers now: ${this.fullHeaders}`)
+                }
+            } else {
+                let parts = line.split(",")
+                console.log(`Data: ${parts} ${parts.length} ${this.headers.length}`)
+                if(parts.length != this.headers.length) {
+                    console.log(`Invalid line: ${line} ${this.bytesProcessed}`)
+                } else {
+                    let time = null
+                    if(this.indexOfTime!=-1) {
+                        time = parts[this.indexOfTime]
+                    } 
+                    parts = parts.slice(0, this.indexOfTime).concat(parts.slice(this.indexOfTime+1))
+                    //  name, reboot, local time, time, data...
+                    let newRow = [this.label || this.name, this.nextDataAfterReboot ? "true" : null, null, time].concat(parts)
+                    // console.log(`New Row: ${newRow}`)
+                    this.rows.push(newRow)
+                    this.nextDataAfterReboot = false
+                }
+            }
+        }
+        this.processTime()
+        // Advance by total contents of lines and newlines
+        this.bytesProcessed += lines.length + lines.reduce((a, b) => a + b.length, 0)
+        // Notify any listeners
+        for(let i=startRow; i<this.rows.length; i++) {
+            this.updatedRow(i)
+        }
     }
 
     onSecurity(event) {
@@ -452,8 +508,9 @@ class uBit extends EventTarget {
 
     onConnectionSyncCompleted() {
         if(this.firstConnectionUpdate) {
+            //console.log("onConnectionSyncCompleted")
             this.firstConnectionUpdate = false
-            console.log("onConnectionSyncCompleted")
+            this.processTime()
         }
     }
 
@@ -477,6 +534,7 @@ class uBit extends EventTarget {
             }
             this.rawData[retrieve.start+i] = retrieve.segments[i]
         }
+        this.parseData()
 
         // If we're done with the entire transaction, call the completion handler if one
         if(retrieve.success) {
@@ -626,8 +684,7 @@ class uBit extends EventTarget {
 
         this.discardRetrieveQueue()
 
-        this.mbConnectTime = null
-        this.wallClockConnectTime = null
+        this.mbRebootTime = null
         this.clearDataTimeout()
     }
 

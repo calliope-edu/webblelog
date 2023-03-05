@@ -64,6 +64,12 @@
         consolePrintln(`Log Usage ${e.detail.device.name}: ${e.detail.percent}%`)
     })
 
+    uBM.addEventListener("row updated", (e)=> {
+        // console.log(`Row Update ${e.detail.device.name} ${e.detail.row}:\n${e.detail.headers}\n${e.detail.data}`)
+        // consolePrintln(`Row Updated ${e.detail.device.name}  ${e.detail.row}:`)
+        // consolePrintln(`Headers ${e.detail.headers.join("\t\t")}`)
+        // consolePrintln(`Data ${e.detail.data.join("\t\t")}`)
+    })
 
     document.getElementById("connect").addEventListener("click", () => uBM.connect())
 
