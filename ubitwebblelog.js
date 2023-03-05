@@ -10,6 +10,7 @@
  * @param {*} data String (file contents) to download
  * @param {*} filename The file name (include extension)
  * @param {*} type the extension (".csv")
+ * @private
  */
 function download(data, filename, type) {
     var file = new Blob([data], {type: type});
@@ -47,6 +48,10 @@ const serviceCharacteristics = new Map(
     ]);
 
 
+/**
+ * Retrieve task
+ * @private
+ */
 class retrieveTask {
     /**
      * Task for the retrieval queue for data

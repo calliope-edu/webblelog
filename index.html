@@ -48,7 +48,7 @@
         consolePrintln(`Connected to: ${e.detail.device.getLabel()}`)
         d = e.detail.device
     })
-    
+
     uBM.addEventListener("disconnected", (e)=> {
         // console.log("Device disconnected")
         // console.dir(e.detail)
@@ -79,12 +79,15 @@
             device.disconnect()
         }
     })
+
     uBM.addEventListener("unauthorized", (e)=> {
         // console.log(`**Unauthorized!!** ${e.detail.device.getLabel()}%`)
         consolePrintln(`<b>Unauthorized!</b> ${e.detail.device.getLabel()}`)
     })
 
     document.getElementById("download").addEventListener("click", () => d && d.download("data"))
+
+    document.getElementById("clear").addEventListener("click", () => { document.getElementById("console").innerHTML = "" })
 
 </script>
 
