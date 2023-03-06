@@ -90,6 +90,52 @@ classDiagram
     %%link uBit "./docs/docs/uBit.html" "Link"
 ```
 
+## Connection Process
+
+### Checking Password
+
+If a password is not needed or a successful password is already saved, after connection it will proceed on to retrieve all new data (After Security Confirmation process).  Otherwise the `sendAuthorization()` must be used to send a password to get access.
+
+```mermaid
+flowchart TD
+  id0([Connected])
+  id1{Check security}
+  id4([After Security Confirmation])
+  id5[Send event: unauthorized]
+  id6[sendAuthorization]
+
+  id0-->id1
+  id1-- Authorized -->id4
+  id1-- Unauthorized -->id5
+  id5-->id6
+  id6-->id1
+```
+
+### After Security Confirmation
+
+After gaining authorization to access data, the data that was acquired since the last connection is retrieved. 
+
+```mermaid
+flowchart TD
+  id0([After Security Confirmation])
+  id1[Request all new data since last connection]
+  id2[Wait for chunk of data]
+  id3[Process chunk of data]
+  id4[Send event: progress]
+  id4b["Send events: row-updated (multiple)"]
+  id5{Done getting data?}
+  id6[Send event: data-ready]
+
+  id0-->id1
+  id1-->id2
+  id2-->id3
+  id3-->id4
+  id4-->id4b
+  id4b-->id5
+  id5-- No -->id2
+  id5-- Yes -->id6
+```
+
 ## Sequences
 
 ### Connection 
@@ -99,18 +145,15 @@ sequenceDiagram
   participant Front end
   participant uBitManager 
 
-Front end ->> uBitManager: connect()
-
-
+Front end ->>+uBitManager: connect()
+loop Until all new data received
+  uBitManager -->>Front end: Event:progress
+  loop Each updated row
+  uBitManager -->>Front end: Event:row-updated
+  end
+end
+uBitManager -->>Front end: Event: data-ready
 ```
-
-
-
-
-
-## Summary
-
-TODO
 
 ## JSDocs: Documentation on the functions
 
@@ -126,8 +169,10 @@ jsdoc ubitwebblelog.js -r jsdoc.md -d docs
 
 See [`index.html`](./index.html) for a complete example application.
 
-
 # TODO Log
 
-
+* Finish docs / sequence diagrams
+* Finish testing persistent storage and enable it.
+* More testing.
+* Try to speed up initial download.
 

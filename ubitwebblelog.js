@@ -415,7 +415,47 @@ class uBit extends EventTarget {
         this.dataLenChar.addEventListener('characteristicvaluechanged', this.onDataLength)
         await this.dataLenChar.startNotifications()        
     }
-       
+
+    /**
+     * Remove this device
+     */
+    remove() {
+        this.manager.removeDevice(this.id)
+        // Remove any listeners
+        this.device && this.device.removeEventListener('gattserverdisconnected', this.onDisconnect)
+        this.dataChar && this.dataChar.removeEventListener('characteristicvaluechanged', this.onData)
+        this.dataLenChar && this.dataLenChar.removeEventListener('characteristicvaluechanged', this.onDataLength)
+        this.usageChar && this.usageChar.removeEventListener('characteristicvaluechanged', this.onUsage)
+        this.securityChar && this.securityChar.removeEventListener('characteristicvaluechanged', this.onSecurity)        
+        // If connected, disconnect
+        this.device && this.device.gatt.connected && this.device.gatt.disconnect()
+        // Make sure all references are cleared
+        this.disconnected()
+    }
+
+    /**
+     * Refresh (reload) all data from micro:bit (removes all local data)
+     */
+    refreshData() {
+        this.rawData = []
+        this.dataLength = 0
+        this.bytesProcessed = 0 // Reset to beginning of processing
+        this.discardRetrieveQueue() // Clear any pending requests
+
+        this.bytesProcessed = 0
+        this.headers = []
+        this.indexOfTime = 0
+        this.fullHeaders = []
+        this.rows = [] 
+
+        /** 
+        * @event graph-cleared
+        * @type {object}
+        * @property {uBit} detail.device The device that clear all data (completed an erase at some time)
+        */ 
+        this.manager.dispatchEvent(new CustomEvent("graph-cleared", {detail: {device: this}}))
+    }
+
     /**
      * 
      * @param {event} event The event data
@@ -432,23 +472,7 @@ class uBit extends EventTarget {
             // Probably erased.  Retrieve it all
             if(length<this.dataLength) {
                 console.log("Log smaller than expected.  Retrieving all data")
-                this.rawData = []
-                this.dataLength = 0
-                this.bytesProcessed = 0 // Reset to beginning of processing
-                this.discardRetrieveQueue() // Clear any pending requests
-
-                this.bytesProcessed = 0
-                this.headers = []
-                this.indexOfTime = 0
-                this.fullHeaders = []
-                this.rows = [] 
-
-                /** 
-                * @event graph-cleared
-                * @type {object}
-                * @property {uBit} detail.device The device that clear all data (completed an erase at some time)
-                */ 
-                this.manager.dispatchEvent(new CustomEvent("graph-cleared", {detail: {device: this}}))
+                this.refreshData()
             }
 
             // Get the index of the last known value (since last update)
@@ -866,6 +890,7 @@ class uBit extends EventTarget {
  * @fires unauthorized
  * @fires graph-cleared
  * @fires row-updated
+ * @fires device-list-changed
  */
 class uBitManager extends EventTarget  {
 
@@ -879,6 +904,47 @@ class uBitManager extends EventTarget  {
         this.devices = new Map()
 
         this.connect = this.connect.bind(this)
+
+        // TODO: Review save/restore
+        // this.restoreDevices()
+        // this.saveDevices = this.saveDevices.bind(this)
+        // window.addEventListener("beforeunload", this.saveDevices, false);
+    }
+
+    /**
+     * Restore devices from local storage
+     * @private
+     */
+    restoreDevices() {
+        let saved = localStorage.getItem("devices")
+        if(saved) {
+            saved = JSON.parse(saved)
+            for(let item of saved) {
+                let uB = new uBit(this)
+                uB.label = item.label
+                uB.rawData = item.rawData
+                uB.parseData()
+                uB.dataLength = item.rawData.reduce((a,b)=>a+b.length, 0)
+                uB.password = item.password
+                uB.passwordAttempts = item.passwordAttempts
+                this.devices.set(item.id, uB)
+            }
+        }
+    }
+
+    /**
+     * Save devices to local storage
+     * @private
+     */
+    saveDevices() {
+        // Create object of: id -> {name, , rawData}
+        let savedDetails = []
+        for(let [id, uB] of this.devices) {
+            console.log(`Saving ${id}`)
+            savedDetails.push( {id: id, label: uB.label, rawData: uB.rawData, password: uB.password, passwordAttempts: uB.passwordAttempts})
+        }
+        let saved = JSON.stringify(savedDetails)
+        localStorage.setItem("devices", saved)
     }
 
     /**
@@ -907,10 +973,28 @@ class uBitManager extends EventTarget  {
 
     /**
      * Get a map of ids to all known devices
-     * @returns Get Map of unique device id to device (devices that have been connected to in the past)
+     * @returns Map of unique device id to device (devices that have been connected to in the past)
      */
     getDevices() {
         return this.devices
+    }
+
+    /**
+     * Notify listeners that the device list has changed
+     * @private
+     */
+    notifyDeviceListChanged() {
+        /** 
+        * @event device-list-changed
+        * @type {object}
+        * @property {uBit} detail.devices Updated map of device ids to devices
+        */ 
+        this.dispatchEvent(new CustomEvent("device-list-changed", {detail: {devices: this.devices}} ))
+    }
+
+    removeDevice(id) {
+        this.devices.delete(id)
+        this.notifyDeviceListChanged()
     }
 
 }
