@@ -188,5 +188,10 @@ See [`index.html`](./index.html) for a complete example application.
 * Finish docs / sequence diagrams
 * Finish testing persistent storage and enable it.
 * More testing.
-* Try to speed up initial download.
+  * Multiple devices.
+* Try to speed up initial download:
+  * https://punchthrough.com/ble-throughput-part-4/
+  * 
+* **Do Not Mutate** warning!
+* Event for new header detected
 
