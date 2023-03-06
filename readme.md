@@ -82,6 +82,8 @@ classDiagram
       +int getDataLength()
       +void sendErase()
       +void sendAuthorization(string)
+      +void refreshData()
+      +void remove()
     }
 
     uBitManager "1" *-- "*" uBit
