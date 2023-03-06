@@ -5,6 +5,9 @@
  */
 
 
+/**
+ * @private
+ */
 const onDataTIMEOUT = 1000          // Timeout after 1 second of no data (and expecting more)
 const dataBurstSIZE = 100           // Number of packets to request at in a burst 
 const progressPacketThreshold = 10  // More than 10 packets and report progress of transfer
@@ -429,6 +432,11 @@ class uBit extends EventTarget {
         this.securityChar && this.securityChar.removeEventListener('characteristicvaluechanged', this.onSecurity)        
         // If connected, disconnect
         this.device && this.device.gatt.connected && this.device.gatt.disconnect()
+        // Discard any data, etc. 
+        this.rawData = [] 
+        this.rows = []
+        this.dataLength = 0
+        this.bytesProcessed = 0
         // Make sure all references are cleared
         this.disconnected()
     }

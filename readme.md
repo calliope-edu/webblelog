@@ -60,7 +60,19 @@ datalogger.setColumnTitles(
 
 # API
 
+## Objects 
 
+* `uBitManager`:  A single `uBitManager` should be created for any application.  It is used to connect to and manage available micro:bit data loggers.  All events for individual micro:bits are sent via the manager.
+* `uBit`: A single micro:bit object.  It provides operations to change its label, refresh all it's data, remove it, etc. 
+
+A typical application will:
+
+1. Create a single `uBitManager` instance.
+2. Register for events of interest.
+3. Allow users to call the `uBitManager`'s `connect()` to connect to micro:bit data loggers.
+4. Allow interactions via:
+   * Respond to any incoming events (i.e., graph or log data)
+   * Allow users to call operations on individual micro:bits (`refresh()` data, `erase()`, etc.) 
 
 ## Class Diagrams
 
