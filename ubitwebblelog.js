@@ -85,7 +85,7 @@ class uBit extends EventTarget {
         this.nextDataAfterReboot = false
         this.bytesProcessed = 0
         this.headers = []
-        this.indexOfTime = 0
+        this.indexOfTime = -1
         this.fullHeaders = []
         this.rows = [] 
 

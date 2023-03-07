@@ -224,7 +224,7 @@ See [`index.html`](./index.html) for a complete example application.
 * Finish docs / sequence diagrams
 * Finish testing persistent storage and enable it.
 * More testing.
-  * Multiple devices.
+  * Multiple devices: Seems good
 * Try to speed up initial download:
   * https://punchthrough.com/ble-throughput-part-4/
-
+* Note that headers _must_ include "Time" and unit of time must be seconds
