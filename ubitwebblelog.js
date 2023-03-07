@@ -575,7 +575,7 @@ class uBit extends EventTarget {
                     this.headers = parts
                     this.indexOfTime = parts.findIndex((element) => element.includes("Time"))
                     this.fullHeaders = ["Microbit Label", "Reboot Before Data", "Time (local)"]
-                    if(this.indexOfTime != -1) {
+                    if(this.indexOfTime == -1) {
                         this.fullHeaders = this.fullHeaders.concat(parts)
                     } else {
                         // Time then data
