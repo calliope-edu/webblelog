@@ -98,17 +98,26 @@
 
         
             
-<h4 class="name" id="onDataTIMEOUT"><span class="type-signature">(constant) </span>onDataTIMEOUT<span class="type-signature"></span></h4>
+<h4 class="name" id="SERVICE_UUID"><span class="type-signature">(constant) </span>SERVICE_UUID<span class="type-signature"> :string</span></h4>
 
 
 
 
 <div class="description">
-    JavaScript functions for interacting with micro:bit microcontrollers over WebBluetooth
-(Only works in Chrome browsers;  Pages must be either HTTPS or local)
+    UUID of the micro:bit service
 </div>
 
 
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">string</span>
+
+
+        </li>
+    </ul>
 
 
 
@@ -143,7 +152,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ubitwebblelog.js.html">ubitwebblelog.js</a>, <a href="ubitwebblelog.js.html#line8">line 8</a>
+        <a href="ubitwebblelog.js.html">ubitwebblelog.js</a>, <a href="ubitwebblelog.js.html#line11">line 11</a>
     </li></ul></dd>
     
 
@@ -285,7 +294,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ubitwebblelog.js.html">ubitwebblelog.js</a>, <a href="ubitwebblelog.js.html#line380">line 380</a>
+        <a href="ubitwebblelog.js.html">ubitwebblelog.js</a>, <a href="ubitwebblelog.js.html#line382">line 382</a>
     </li></ul></dd>
     
 
@@ -431,7 +440,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ubitwebblelog.js.html">ubitwebblelog.js</a>, <a href="ubitwebblelog.js.html#line297">line 297</a>
+        <a href="ubitwebblelog.js.html">ubitwebblelog.js</a>, <a href="ubitwebblelog.js.html#line299">line 299</a>
     </li></ul></dd>
     
 
@@ -473,6 +482,10 @@
     
 
 
+
+<div class="description">
+    The list of devices has changed (device added or removed)
+</div>
 
 
 
@@ -577,7 +590,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ubitwebblelog.js.html">ubitwebblelog.js</a>, <a href="ubitwebblelog.js.html#line987">line 987</a>
+        <a href="ubitwebblelog.js.html">ubitwebblelog.js</a>, <a href="ubitwebblelog.js.html#line1003">line 1003</a>
     </li></ul></dd>
     
 
@@ -723,7 +736,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ubitwebblelog.js.html">ubitwebblelog.js</a>, <a href="ubitwebblelog.js.html#line836">line 836</a>
+        <a href="ubitwebblelog.js.html">ubitwebblelog.js</a>, <a href="ubitwebblelog.js.html#line850">line 850</a>
     </li></ul></dd>
     
 
@@ -869,7 +882,176 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ubitwebblelog.js.html">ubitwebblelog.js</a>, <a href="ubitwebblelog.js.html#line451">line 451</a>
+        <a href="ubitwebblelog.js.html">ubitwebblelog.js</a>, <a href="ubitwebblelog.js.html#line458">line 458</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="event:headers-updated">headers-updated</h4>
+    
+
+    
+
+
+
+
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">object</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+
+
+
+
+    <h5 class="subsection-title">Properties:</h5>
+
+    
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>detail.device</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="uBit.html">uBit</a></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">The device that has an update on the headers</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>detail.headers</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Array.&lt;string></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">the new headers for the device</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="ubitwebblelog.js.html">ubitwebblelog.js</a>, <a href="ubitwebblelog.js.html#line587">line 587</a>
     </li></ul></dd>
     
 
@@ -1038,7 +1220,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ubitwebblelog.js.html">ubitwebblelog.js</a>, <a href="ubitwebblelog.js.html#line820">line 820</a>
+        <a href="ubitwebblelog.js.html">ubitwebblelog.js</a>, <a href="ubitwebblelog.js.html#line834">line 834</a>
     </li></ul></dd>
     
 
@@ -1207,7 +1389,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ubitwebblelog.js.html">ubitwebblelog.js</a>, <a href="ubitwebblelog.js.html#line281">line 281</a>
+        <a href="ubitwebblelog.js.html">ubitwebblelog.js</a>, <a href="ubitwebblelog.js.html#line283">line 283</a>
     </li></ul></dd>
     
 
@@ -1422,7 +1604,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ubitwebblelog.js.html">ubitwebblelog.js</a>, <a href="ubitwebblelog.js.html#line524">line 524</a>
+        <a href="ubitwebblelog.js.html">ubitwebblelog.js</a>, <a href="ubitwebblelog.js.html#line531">line 531</a>
     </li></ul></dd>
     
 
@@ -1568,7 +1750,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ubitwebblelog.js.html">ubitwebblelog.js</a>, <a href="ubitwebblelog.js.html#line629">line 629</a>
+        <a href="ubitwebblelog.js.html">ubitwebblelog.js</a>, <a href="ubitwebblelog.js.html#line643">line 643</a>
     </li></ul></dd>
     
 
@@ -1610,13 +1792,13 @@
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="uBit.html">uBit</a></li><li><a href="uBitManager.html">uBitManager</a></li></ul><h3>Events</h3><ul><li><a href="global.html#event:connected">connected</a></li><li><a href="global.html#event:data-ready">data-ready</a></li><li><a href="global.html#event:device-list-changed">device-list-changed</a></li><li><a href="global.html#event:disconnected">disconnected</a></li><li><a href="global.html#event:graph-cleared">graph-cleared</a></li><li><a href="global.html#event:log-usage">log-usage</a></li><li><a href="global.html#event:progress">progress</a></li><li><a href="global.html#event:row-updated">row-updated</a></li><li><a href="global.html#event:unauthorized">unauthorized</a></li></ul><h3>Global</h3><ul><li><a href="global.html#onDataTIMEOUT">onDataTIMEOUT</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="uBit.html">uBit</a></li><li><a href="uBitManager.html">uBitManager</a></li></ul><h3>Events</h3><ul><li><a href="global.html#event:connected">connected</a></li><li><a href="global.html#event:data-ready">data-ready</a></li><li><a href="global.html#event:device-list-changed">device-list-changed</a></li><li><a href="global.html#event:disconnected">disconnected</a></li><li><a href="global.html#event:graph-cleared">graph-cleared</a></li><li><a href="global.html#event:headers-updated">headers-updated</a></li><li><a href="global.html#event:log-usage">log-usage</a></li><li><a href="global.html#event:progress">progress</a></li><li><a href="global.html#event:row-updated">row-updated</a></li><li><a href="global.html#event:unauthorized">unauthorized</a></li></ul><h3>Global</h3><ul><li><a href="global.html#SERVICE_UUID">SERVICE_UUID</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.2</a> on Sun Mar 05 2023 20:20:05 GMT-0600 (Central Standard Time)
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.2</a> on Mon Mar 06 2023 19:03:28 GMT-0600 (Central Standard Time)
 </footer>
 
 <script> prettyPrint(); </script>

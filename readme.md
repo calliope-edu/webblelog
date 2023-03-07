@@ -60,7 +60,7 @@ datalogger.setColumnTitles(
 
 # API
 
-## Objects 
+## Objects
 
 * `uBitManager`:  A single `uBitManager` should be created for any application.  It is used to connect to and manage available micro:bit data loggers.  All events for individual micro:bits are sent via the manager.
 * `uBit`: A single micro:bit object.  It provides operations to change its label, refresh all it's data, remove it, etc. 
@@ -68,11 +68,11 @@ datalogger.setColumnTitles(
 A typical application will:
 
 1. Create a single `uBitManager` instance.
-2. Register for events of interest.
+2. Register with it for events of interest.
 3. Allow users to call the `uBitManager`'s `connect()` to connect to micro:bit data loggers.
 4. Allow interactions via:
-   * Respond to any incoming events (i.e., graph or log data)
-   * Allow users to call operations on individual micro:bits (`refresh()` data, `erase()`, etc.) 
+   * Responding to any incoming events (i.e., graph or log data)
+   * Allowing users to call operations on individual micro:bits (`refresh()` data, `erase()`, etc.) 
 
 ## Class Diagrams
 
@@ -127,7 +127,7 @@ flowchart TD
 
 ### After Security Confirmation
 
-After gaining authorization to access data, the data that was acquired since the last connection is retrieved. 
+After gaining authorization to access data, the data that was acquired since the last connection is retrieved.
 
 ```mermaid
 flowchart TD
@@ -150,9 +150,31 @@ flowchart TD
   id5-- Yes -->id6
 ```
 
+Multiple `progress` and `row-updated` events will occur while data is being retrieved.  The UTC timestamps will not be known until all data has been retrieved (after `data-ready`).
+
+## An approach for graphing
+
+```mermaid
+flowchart TD
+  id0([After Connect])
+  id1[Wait for data-ready]
+  id2[Graph all existing data]
+  id3[Add listener for row-update]
+  id4[Wait for row-update]
+  id5["Update graph with new row(s)"]
+  
+  id0-->id1
+  id1-->id2
+  id2-->id3
+  id3-->id4
+  id4-->id5
+  id5-->id4
+```
+
+
 ## Sequences
 
-### Connection 
+### Connection
 
 ```mermaid
 sequenceDiagram
@@ -168,6 +190,20 @@ loop Until all new data received
 end
 uBitManager -->>Front end: Event: data-ready
 ```
+
+## Security access
+
+```mermaid
+sequenceDiagram
+  participant Front end
+  participant uBitManager 
+
+Front end ->>uBitManager: connect()
+uBitManager -->>Front end: Event: unauthorized
+Front end ->>uBitManager: sendAuthorization()
+```
+
+If the password is invalid there will be another `unauthorize` event.  Otherwise it will proceed to retrieve data from the micro:bit.
 
 ## JSDocs: Documentation on the functions
 
@@ -191,7 +227,4 @@ See [`index.html`](./index.html) for a complete example application.
   * Multiple devices.
 * Try to speed up initial download:
   * https://punchthrough.com/ble-throughput-part-4/
-  * 
-* **Do Not Mutate** warning!
-* Event for new header detected
 

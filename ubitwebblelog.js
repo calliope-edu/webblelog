@@ -1,17 +1,16 @@
 
 /**
- * JavaScript functions for interacting with micro:bit microcontrollers over WebBluetooth
+ * @fileoverview JavaScript functions for interacting with micro:bit microcontrollers over WebBluetooth
  * (Only works in Chrome browsers;  Pages must be either HTTPS or local)
  */
 
-
-/**
- * @private
- */
 const onDataTIMEOUT = 1000          // Timeout after 1 second of no data (and expecting more)
 const dataBurstSIZE = 100           // Number of packets to request at in a burst 
 const progressPacketThreshold = 10  // More than 10 packets and report progress of transfer
 
+/**
+ * @constant {string} SERVICE_UUID - UUID of the micro:bit service
+ */
 const SERVICE_UUID     = "accb4ce4-8a4b-11ed-a1eb-0242ac120002"  // BLE Service
 const serviceCharacteristics = new Map( 
     [
@@ -113,7 +112,7 @@ class uBit extends EventTarget {
 
     /**
      * 
-     * @returns {string[]} Array of headers for the data
+     * @returns {string[]} Array of headers for the data (do NOT mutate)
      */
     getHeaders() {
         return this.fullHeaders
@@ -131,7 +130,7 @@ class uBit extends EventTarget {
      * 
      * @param {number} start Start row (inclusive)
      * @param {number} end End row (exclusive)
-     * @returns Rows from start (inclusive) to end (inclusive)
+     * @returns Rows from start (inclusive) to end (inclusive) (do NOT mutate data)
      */
     getData(start = 0, end = this.rows.length) {
         return this.rows.slice(start, end)
@@ -585,6 +584,13 @@ class uBit extends EventTarget {
                         this.fullHeaders = this.fullHeaders.concat(parts.slice(this.indexOfTime+1))
                     }
                     //console.log(`Full Headers now: ${this.fullHeaders}`)
+                    /**
+                     * @event headers-updated
+                     * @type {object}
+                     * @property {uBit} detail.device The device that has an update on the headers
+                     * @property {string[]} detail.headers the new headers for the device
+                     */
+                    this.manager.dispatchEvent(new CustomEvent("headers-updated", {detail: {device: this, headers: this.fullHeaders}}))
                 }
             } else {
                 let parts = line.split(",")
@@ -899,6 +905,7 @@ class uBit extends EventTarget {
  * @fires graph-cleared
  * @fires row-updated
  * @fires device-list-changed
+ * @fires headers-updated
  */
 class uBitManager extends EventTarget  {
 
@@ -971,6 +978,7 @@ class uBitManager extends EventTarget  {
             if(!uB){
                 uB = new uBit(this)
                 this.devices.set(device.id, uB)
+                this.notifyDeviceListChanged()
             }
             await uB.onConnect(service, chars, device)
         } else {
@@ -981,7 +989,7 @@ class uBitManager extends EventTarget  {
 
     /**
      * Get a map of ids to all known devices
-     * @returns Map of unique device id to device (devices that have been connected to in the past)
+     * @returns Map of unique device id to device (devices that have been connected to in the past) (do NOT mutate)
      */
     getDevices() {
         return this.devices
@@ -993,6 +1001,7 @@ class uBitManager extends EventTarget  {
      */
     notifyDeviceListChanged() {
         /** 
+         * The list of devices has changed (device added or removed)
         * @event device-list-changed
         * @type {object}
         * @property {uBit} detail.devices Updated map of device ids to devices
