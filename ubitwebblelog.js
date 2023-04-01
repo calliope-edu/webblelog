@@ -296,12 +296,12 @@ class uBit extends EventTarget {
      * @private
      */
     notifyDataReady() {
-    /** 
-    * @event data-ready
-    * @type {object}
-    * @property {uBit} detail.device The device that has new data
-    */ 
-    this.manager.dispatchEvent(new CustomEvent("data-ready", {detail: {device:this}}))
+        /** 
+        * @event data-ready
+        * @type {object}
+        * @property {uBit} detail.device The device that has new data
+        */ 
+        this.manager.dispatchEvent(new CustomEvent("data-ready", {detail: {device:this}}))
     }
 
     /**
@@ -312,6 +312,11 @@ class uBit extends EventTarget {
      * @private
      */
     retrieveChunk(start, length, success = null) {
+
+        // // PERFORMANCE CHECKING
+        // this.retrieveStartTime = Date.now()
+        // this.dataTransferred = 0
+
         //console.log(`retrieveChunk: Retrieving @${start} ${length} *16 bytes`)
         if(start*16>this.dataLength) {
             console.log(`retrieveChunk: Start index ${start} is beyond end of data`)
@@ -564,7 +569,7 @@ class uBit extends EventTarget {
         lines.pop() // Discard the last / partial line
         for(let line of lines) {
             //console.log(`parsing line: ${line}`)
-            if(line == "Reboot") {
+            if(line == "0") {  // Single 0 is reboot
                 //console.dir(`Reboot`)
                 this.nextDataAfterReboot = true
             } else if(line.includes("Time")) {
@@ -614,7 +619,7 @@ class uBit extends EventTarget {
         this.processTime()
         // If we've already done the first connection...
         if(this.firstConnectionUpdate==false) {
-            this.notifyDataReady()
+            this.notifyDataReady()            
         }
         // Advance by total contents of lines and newlines
         this.bytesProcessed += lines.length + lines.reduce((a, b) => a + b.length, 0)
@@ -677,6 +682,12 @@ class uBit extends EventTarget {
             this.firstConnectionUpdate = false
             this.processTime()
             this.notifyDataReady()
+
+            // // PERFORMANCE CHECKING
+            // this.retrieveStopTime = Date.now()
+            // let delta = this.retrieveStopTime - this.retrieveStartTime
+            // let rate = this.dataTransferred / delta * 1000
+            // console.log(`Final Packet;  Elapsed time: ${delta} ${this.dataTransferred} Rate: ${rate} bytes/s`)
         }
     }
 
@@ -741,6 +752,7 @@ class uBit extends EventTarget {
                     retrieve.segments[retrieve.processed+length]==null ) {
                     length++
                 }
+//                console.log(`Re-Requesting ${retrieve.start+retrieve.processed} for ${length}`)
                 // Request them
                 this.requestSegment(retrieve.start+retrieve.processed, length)
             } else {
@@ -764,6 +776,9 @@ class uBit extends EventTarget {
         }
         // First four bytes are index/offset this is in reply to...
         let dv = event.target.value
+
+        // // PERFORMANCE CHECKING
+        // this.dataTransferred += dv.byteLength
 
         if(dv.byteLength>=4) {
             let index = dv.getUint32(0,true)
