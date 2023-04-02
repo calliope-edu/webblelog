@@ -24,7 +24,7 @@ const serviceCharacteristics = new Map(
      ["accb5dd8-8a4b-11ed-a1eb-0242ac120002", "timeChar"]         // Time	Read
     ]);
 
-
+ 
 /**
  * Retrieve task
  * @private
