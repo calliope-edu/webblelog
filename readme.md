@@ -19,15 +19,16 @@ This provides an API for interacting with the micro:bit's log over Bluetooth via
   * `_config.yml`: GitHub pages config
   * [`LICENSE`](./LICENSE): MIT License
 
-## Micro:bit configuration (Pre-CODAL Update)
+## Micro:bit configuration 
 
-At this time (2022-02-06) the version of CODAL supported in MakeCode does not include `uBit.log.readData()` needed to read log data.  A newer (alpha) version of MakeCode must be used for the Bluetooth Extension.
+<!-- At this time (2022-02-06) the version of CODAL supported in MakeCode does not include `uBit.log.readData()` needed to read log data.  A newer (alpha) version of MakeCode must be used for the Bluetooth Extension.
 
-* Go to https://makecode.microbit.org/app/62bd528c2aa51e6342a764c506492937d31ba568-a9bfe06ee6 (which uses CODAL v0.2.48)
+* Go to https://makecode.microbit.org/app/62bd528c2aa51e6342a764c506492937d31ba568-a9bfe06ee6 (which uses CODAL v0.2.48) -->
+* Go to https://makecode.microbit.org/
 * Create a new project
 * Add the BLELog extension
   * + Extensions
-  * Paste the URL: https://github.com/bsiever/microbit-pxt-blelog in the search field and hit enter
+  * Paste the URL: https://github.com/bsiever/pxt-blelog in the search field and hit enter
   * Click on the tile to add the extension.
   * You'll asked to confirm removal of the `radio` blocks (and add this extension).  Click on the `Remove ...` button.
 * Add the `Data Logger Bluetooth`'s `bluetooth data logger service` to the `on start` handler
@@ -54,9 +55,7 @@ datalogger.setColumnTitles(
 
 ## Program the Micro:bit from Shared Project
 
-* Example Project: https://makecode.microbit.org/_DLCFDW5WF11
-* Another example: https://makecode.microbit.org/_YLPW2ehesbM1
-
+* Example Project: https://makecode.microbit.org/_TDy4WzCU3iJM
 
 # API
 
