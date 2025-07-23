@@ -1,14 +1,238 @@
 
+You will find the English ReadMe at the end of the document.
+
+# Übersicht
+
+Dies stellt eine API zur Verfügung, um über Bluetooth (via WebBLE) mit dem Calliope mini 3 Log zu interagieren. Es beinhaltet auch eine Demo-Anwendung, die zeigt, wie es funktioniert.
+Basierend auf der Erweiterung von https://github.com/bsiever
+
+# Dateien / Manifest
+
+* `ubitwebblelog.js`: Die eigentliche API (die einzige Datei, die für andere Anwendungen benötigt wird)
+* Demo-Anwendung (eine webbasierte Konsole, die die verschiedenen Nachrichten anzeigt)
+  * [`index.html`](https://github.com/calliope-edu/webblelog/blob/master/index.html): HTML mit eingebettetem JavaScript für die Anwendung  
+    * [Live-Version anzeigen](https://calliope-edu.github.io/webblelog/) *Funktioniert nur in Chrome*  
+    * [Lokale Live-Version anzeigen](./index.html) *Funktioniert nur in Chrome*
+  * `style.css`
+  * Benötigt `ubitwebblelog.js`
+* Dokumentationsdateien:
+  * [`readme.md`](https://github.com/calliope-edu/webblelog/blob/master/readme.md): Projektübersicht
+  * [`docs`](https://calliope-edu.github.io/webblelog/docs/): Verzeichnis mit JSDoc-Dokumentation  
+    * `jsdoc.md`: Startseite / Readme für die JSDocs
+  * `_config.yml`: GitHub Pages Konfiguration
+  * [`LICENSE`](./LICENSE): MIT-Lizenz
+
+## Calliope mini Konfiguration
+
+* Gehe zu https://makecode.calliope.cc  
+* Erstelle ein neues Projekt  
+* Füge die BLELog-Erweiterung hinzu  
+  * + Erweiterungen  
+  * Füge die URL `https://github.com/calliope-edu/pxt-blelog` in das Suchfeld ein und drücke Enter  
+  * Klicke auf die Kachel, um die Erweiterung hinzuzufügen  
+* Füge im `bei Start`-Block den Baustein `bluetooth datalogger service` aus `Data Logger Bluetooth` hinzu  
+* Füge ebenfalls `set columns` von `data logger` in den `bei Start`-Block ein  
+  * Gib hier die Namen der Spalten (Felder) an  
+* Füge weitere Bausteine hinzu, um Datenpunkte zu erfassen und/oder das Log zu löschen.
+
+```
+ts
+input.onButtonPressed(Button.A, function () {
+    datalogger.log(
+    datalogger.createCV("x", input.acceleration(Dimension.X)),
+    datalogger.createCV("y", input.acceleration(Dimension.Y))
+    )
+})
+input.onButtonPressed(Button.AB, function () {
+    datalogger.deleteLog(datalogger.DeleteType.Fast)
+})
+blelog.startBLELogService()
+datalogger.setColumnTitles(
+"x",
+"y"
+)
+```
+
+# API
+
+## Objekte
+
+* `uBitManager`: Es sollte genau eine Instanz von `uBitManager` pro Anwendung erstellt werden. Diese dient zur Verbindung mit verfügbaren Calliope mini Datenloggern und zu deren Verwaltung. Alle Ereignisse von einzelnen micro:bits werden über den Manager weitergeleitet.
+
+* `uBit`: Ein einzelnes Calliope mini Objekt. Es stellt Funktionen bereit, um z. B. das Label zu ändern, alle Daten zu aktualisieren, das Gerät zu entfernen usw.
+
+Eine typische Anwendung wird:
+
+1. Eine einzelne Instanz von `uBitManager` erstellen.
+2. Sich für relevante Ereignisse registrieren.
+3. Nutzer:innen erlauben, über `connect()` des `uBitManager` eine Verbindung zu den micro:bit Datenloggern herzustellen.
+4. Interaktion ermöglichen über:
+   * Reaktion auf eingehende Ereignisse (z. B. Graph- oder Log-Daten)
+   * Aufruf von Funktionen für einzelne Calliope mini (`refresh()` Daten, `erase()`, usw.)
+
+## Klassendiagramme
+
+```
+mermaid
+classDiagram
+    class uBitManager {
+      +(async) void connect()
+      +Map(any:uBit) getDevices() 
+    }
+
+    class uBit {
+      +void disconnect()
+      +string getLabel()
+      +void setLabel()
+      +[string] getCSV()
+      +[string] getRawCSV()
+      +[string] getHeaders()
+      +[[string]] getData(start, end)
+      +int getDataLength()
+      +void sendErase()
+      +void sendAuthorization(string)
+      +void refreshData()
+      +void remove()
+    }
+
+    uBitManager "1" *-- "*" uBit
+
+    %%link uBitManager "./docs/docs/uBitManager.html" "Link"
+    %%link uBit "./docs/docs/uBit.html" "Link"
+```
+
+## Verbindungsprozess
+
+### Passwortüberprüfung
+
+Wenn kein Passwort erforderlich ist oder ein gültiges Passwort bereits gespeichert wurde, wird nach der Verbindung direkt mit dem Abruf aller neuen Daten fortgefahren (siehe Abschnitt „Nach Sicherheitsfreigabe“). Andernfalls muss `sendAuthorization()` aufgerufen werden, um ein Passwort zu übermitteln und Zugriff zu erhalten.
+
+```
+mermaid
+flowchart TD
+  id0([Verbunden])
+  id1{Sicherheitsüberprüfung}
+  id4([Nach Sicherheitsfreigabe])
+  id5[Ereignis senden: unauthorized]
+  id6[sendAuthorization]
+
+  id0-->id1
+  id1-- Autorisiert -->id4
+  id1-- Nicht autorisiert -->id5
+  id5-->id6
+  id6-->id1
+```
+
+## Nach Sicherheitsfreigabe
+# Nach erfolgreicher Autorisierung werden die seit der letzten Verbindung gesammelten Daten abgerufen.
+```
+flowchart TD
+  id0([Nach Sicherheitsfreigabe])
+  id1[Fordere alle neuen Daten seit letzter Verbindung an]
+  id2[Warte auf Datenpaket]
+  id3[Verarbeite Datenpaket]
+  id4[Ereignis senden: Fortschritt]
+  id4b["Ereignisse senden: row-updated (mehrere)"]
+  id5{Alle Daten empfangen?}
+  id6[Ereignis senden: data-ready]
+
+  id0-->id1
+  id1-->id2
+  id2-->id3
+  id3-->id4
+  id4-->id4b
+  id4b-->id5
+  id5-- Nein -->id2
+  id5-- Ja -->id6
+
+```
+
+Während des Datenabrufs werden mehrere progress- und row-updated-Ereignisse ausgelöst. Die UTC-Zeitstempel sind erst bekannt, wenn alle Daten vollständig empfangen wurden (nach dem Ereignis data-ready).
+
+```
+flowchart TD
+  id0([Nach Verbindung])
+  id1[Warte auf data-ready]
+  id2[Zeichne alle vorhandenen Daten]
+  id3[Listener für row-update hinzufügen]
+  id4[Warte auf row-update]
+  id5["Aktualisiere Graph mit neuen Zeilen"]
+  
+  id0-->id1
+  id1-->id2
+  id2-->id3
+  id3-->id4
+  id4-->id5
+  id5-->id4
+
+```
+
+## Abläufe
+
+### Verbindung
+
+```
+mermaid
+sequenceDiagram
+  participant Frontend
+  participant uBitManager 
+
+Frontend ->>+uBitManager: connect()
+loop Bis alle neuen Daten empfangen sind
+  uBitManager -->>Frontend: Ereignis: progress
+  loop Für jede aktualisierte Zeile
+    uBitManager -->>Frontend: Ereignis: row-updated
+  end
+end
+uBitManager -->>Frontend: Ereignis: data-ready
+```
+
+# Sicherheitszugriff
+
+```
+sequenceDiagram
+  participant Frontend
+  participant uBitManager 
+
+Frontend ->>uBitManager: connect()
+uBitManager -->>Frontend: Ereignis: unauthorized
+Frontend ->>uBitManager: sendAuthorization()
+```
+
+Wenn das Passwort ungültig ist, wird erneut ein unauthorized-Ereignis ausgelöst. Andernfalls wird mit dem Abruf der Daten vom Calliope mini fortgefahren.
+
+## JSDocs: Dokumentation der Funktionen [JSDocs hier ansehen](https://calliope-edu.github.io/webblelog/docs/index.html)
+
+```
+jsdoc ubitwebblelog.js -r jsdoc.md -d docs
+```
+
+Siehe [`index.html`](./index.html) für eine vollständige Beispielanwendung.
+
+## TODO-Log
+
+ Dokumentation / Ablaufdiagramme fertigstellen
+ Test des persistenten Speichers abschließen und aktivieren
+ Weitere Tests durchführen
+ Mehrere Geräte: Funktioniert anscheinend gut
+ Versuch, den initialen Download zu beschleunigen:
+ https://punchthrough.com/ble-throughput-part-4/
+ Hinweis: Die Kopfzeile muss Time enthalten und die Zeiteinheit muss in Sekunden angegeben sein
+
+
+
+
+
 # Overview
 
-This provides an API for interacting with the micro:bit's log over Bluetooth via WebBLE.  It also includes a demo application to show how it works.
+This provides an API for interacting with the Calliope mini V3 log over Bluetooth via WebBLE.  It also includes a demo application to show how it works.
+Based on the extension from https://github.com/bsiever
 
 # Files / Manifest
-
 * `ubitwebblelog.js`: The actual API (the only file needed for other applications)
 * Demo application (a web-based console that shows the different messages)
-  * [`index.html`](https://github.com/bsiever/microbit-webblelog/blob/master/index.html):  HTML with in-line JavaScript for the application
-    * [View Live Version](https://bsiever.github.io/microbit-webblelog/) *Only works in Chrome*
+  * [`index.html`](https://github.com/calliope-edu/webblelog/blob/master/index.html):  HTML with in-line JavaScript for the application
+    * [View Live Version](https://calliope.github.io/webblelog/) *Only works in Chrome*
     * [View Local Live Version](./index.html) *Only works in Chrome*
   * `style.css`
   * Requires `ubitwebblelog.js`
@@ -19,16 +243,13 @@ This provides an API for interacting with the micro:bit's log over Bluetooth via
   * `_config.yml`: GitHub pages config
   * [`LICENSE`](./LICENSE): MIT License
 
-## Micro:bit configuration 
+## Calliope mini V3 configuration 
 
-<!-- At this time (2022-02-06) the version of CODAL supported in MakeCode does not include `uBit.log.readData()` needed to read log data.  A newer (alpha) version of MakeCode must be used for the Bluetooth Extension.
-
-* Go to https://makecode.microbit.org/app/62bd528c2aa51e6342a764c506492937d31ba568-a9bfe06ee6 (which uses CODAL v0.2.48) -->
-* Go to https://makecode.microbit.org/
+* Go to https://makecode.calliope.cc
 * Create a new project
 * Add the BLELog extension
   * + Extensions
-  * Paste the URL: https://github.com/bsiever/pxt-blelog in the search field and hit enter
+  * Paste the URL: https://github.com/calliope-edu/pxt-blelog in the search field and hit enter
   * Click on the tile to add the extension.
   * You'll asked to confirm removal of the `radio` blocks (and add this extension).  Click on the `Remove ...` button.
 * Add the `Data Logger Bluetooth`'s `bluetooth data logger service` to the `on start` handler
@@ -53,15 +274,11 @@ datalogger.setColumnTitles(
 )
 ```
 
-## Program the Micro:bit from Shared Project
-
-* Example Project: https://makecode.microbit.org/_TDy4WzCU3iJM
-
 # API
 
 ## Objects
 
-* `uBitManager`:  A single `uBitManager` should be created for any application.  It is used to connect to and manage available micro:bit data loggers.  All events for individual micro:bits are sent via the manager.
+* `uBitManager`:  A single `uBitManager` should be created for any application.  It is used to connect to and manage available Calliope mini data loggers.  All events for individual micro:bits are sent via the manager.
 * `uBit`: A single micro:bit object.  It provides operations to change its label, refresh all it's data, remove it, etc. 
 
 A typical application will:
@@ -71,11 +288,12 @@ A typical application will:
 3. Allow users to call the `uBitManager`'s `connect()` to connect to micro:bit data loggers.
 4. Allow interactions via:
    * Responding to any incoming events (i.e., graph or log data)
-   * Allowing users to call operations on individual micro:bits (`refresh()` data, `erase()`, etc.) 
+   * Allowing users to call operations on individual Calliope mini (`refresh()` data, `erase()`, etc.) 
 
 ## Class Diagrams
 
-```mermaid
+```
+mermaid
 classDiagram
     class uBitManager {
       +(async) void  connect()
@@ -109,7 +327,8 @@ classDiagram
 
 If a password is not needed or a successful password is already saved, after connection it will proceed on to retrieve all new data (After Security Confirmation process).  Otherwise the `sendAuthorization()` must be used to send a password to get access.
 
-```mermaid
+```
+mermaid
 flowchart TD
   id0([Connected])
   id1{Check security}
@@ -128,7 +347,8 @@ flowchart TD
 
 After gaining authorization to access data, the data that was acquired since the last connection is retrieved.
 
-```mermaid
+```
+mermaid
 flowchart TD
   id0([After Security Confirmation])
   id1[Request all new data since last connection]
@@ -153,7 +373,8 @@ Multiple `progress` and `row-updated` events will occur while data is being retr
 
 ## An approach for graphing
 
-```mermaid
+```
+mermaid
 flowchart TD
   id0([After Connect])
   id1[Wait for data-ready]
@@ -175,7 +396,8 @@ flowchart TD
 
 ### Connection
 
-```mermaid
+```
+mermaid
 sequenceDiagram
   participant Front end
   participant uBitManager 
@@ -192,7 +414,8 @@ uBitManager -->>Front end: Event: data-ready
 
 ## Security access
 
-```mermaid
+```
+mermaid
 sequenceDiagram
   participant Front end
   participant uBitManager 
@@ -206,7 +429,7 @@ If the password is invalid there will be another `unauthorize` event.  Otherwise
 
 ## JSDocs: Documentation on the functions
 
-[JSDocs Here](https://bsiever.github.io/microbit-webblelog/docs/index.html)
+[JSDocs Here](https://calliope-edu.github.io/webblelog/docs/index.html)
 
 ### Regenerate
 
